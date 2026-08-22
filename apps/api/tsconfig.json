@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node", "jest"],
+    "useDefineForClassFields": false,
+    "sourceMap": true,
+    "rootDir": "./",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictBindCallApply": true,
+    "forceConsistentCasingInFileNames": true, // Enforce case consistency
+    "noFallthroughCasesInSwitch": true, // Prevent fallthrough in switch cases
+    "resolveJsonModule": true, // Allow importing JSON modules
+    "strict": true, // Enable all strict checks for better type safety
+    "isolatedModules": true, // Ensure TypeScript files can be transpiled in isolation
+    "noImplicitReturns": true, // Enforce all code paths in a function return a value
+    "strictFunctionTypes": true // More strict checking of function types
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tmp", "coverage"]
+}

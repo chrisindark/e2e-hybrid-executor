@@ -1,0 +1,6 @@
+allowBuilds:
+  '@nestjs/core': false
+  '@scarf/scarf': set this to true or false
+  better-sqlite3: false
+  msgpackr-extract: set this to true or false
+  unrs-resolver: set this to true or false
