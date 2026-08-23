@@ -4,7 +4,8 @@
 
 - Node.js 20 or newer
 - pnpm 10 or newer
-- An OpenAI API key
+- A Groq API key and OpenAI-compatible API URL
+- A Gemini API key
 
 ## Install
 
@@ -19,9 +20,14 @@ pnpm exec playwright install chromium
 cp .env.example .env
 ```
 
-Set `OPENAI_API_KEY` in `.env`. Never commit `.env`, `.env.local`, or any
-file containing real credentials. The existing local environment file contains
-credentials that must be revoked and replaced before this project is published.
+Set `GROQ_API_KEY`, `GROQ_API_URL`, and `GEMINI_API_KEY` in `.env`. The intent
+service uses the Groq OpenAI-compatible endpoint; agentic recovery uses Gemini.
+For a local web client, set `CORS_ORIGIN_WHITELIST` to
+`http://localhost:3000` and include `GET,POST,PUT,OPTIONS` in
+`CORS_ALLOW_METHODS`. `APP_PORT` defaults to `3001` in the documented local
+setup, and set `APP_ADDRESS` to `0.0.0.0`.
+
+Never commit `.env`, `.env.local`, or any file containing real credentials.
 
 ## Run checks
 
@@ -35,4 +41,10 @@ pnpm run check
 pnpm run start:dev
 ```
 
-The API listens on `http://localhost:3001` by default.
+With those values, the API listens on `http://localhost:3001`.
+
+## Storage
+
+The API creates `database.sqlite` in its working directory and uses TypeORM
+with SQLite entities for tests, steps, runs, trace events, and promotion
+candidates. `synchronize: true` is enabled for this prototype.

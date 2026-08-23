@@ -1,15 +1,17 @@
 # Hybrid Test Execution API
 
-NestJS backend for the hybrid test execution prototype. It converts test intent
-into structured steps, runs deterministic Playwright actions, falls back to an
-agentic executor when a step fails, records trace events, and supports review
-and promotion of recovered selectors.
+NestJS backend for the hybrid test execution application. It converts test
+intent into structured steps with a Groq OpenAI-compatible endpoint, runs
+deterministic Playwright actions, falls back to Gemini when a step fails,
+persists tests and runs in SQLite, and supports review and promotion of
+recovered steps.
 
 ## Requirements
 
 - Node.js 20 or newer
 - pnpm 10 or newer
-- An OpenAI API key
+- A Groq API key and OpenAI-compatible API URL
+- A Gemini API key
 - Chromium, installed through Playwright
 
 ## Quick start
@@ -21,8 +23,9 @@ cp .env.example .env
 pnpm run start:dev
 ```
 
-The API listens on `http://localhost:3001` by default. Set `OPENAI_API_KEY` in
-`.env` before using intent generation or agentic recovery.
+Set `APP_PORT=3001` and `APP_ADDRESS=0.0.0.0` for the documented local URL,
+then set the provider keys and URLs described in [setup.md](setup.md) before
+using intent generation or agentic recovery.
 
 See [setup.md](setup.md) for configuration and verification details.
 
@@ -45,6 +48,20 @@ See [setup.md](setup.md) for configuration and verification details.
 - `src/apps/mainApp/modules/agentic-execution` handles recovery after drift.
 - `src/apps/mainApp/modules/trace-event` records execution decisions.
 - `src/apps/mainApp/modules/promotion-candidate` manages human review.
+- `database.sqlite` stores TypeORM entities and is created by the API process.
+
+## HTTP API
+
+The API uses URI versioning, so application routes are prefixed with `/v1`.
+The web app uses these routes:
+
+- `POST /v1/intent` generates a structured test from `intent` and `targetUrl`.
+- `GET|POST|PUT /v1/generation` and `/v1/generation/:testId` manage tests.
+- `GET /v1/execution`, `GET /v1/execution/:runId`, and
+  `POST /v1/execution/:testId/run` manage execution and traces.
+- `GET /v1/runs` and `/v1/runs/:runId` retrieve runs.
+- `GET /v1/promotion-candidates` and
+  `POST /v1/promotion-candidates/:promotionId/decide` manage promotion review.
 
 ## Security
 
