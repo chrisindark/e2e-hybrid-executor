@@ -42,5 +42,5 @@ export class PromotionCandidate {
   updatedAt: Date = moment.utc().toDate();
 
   @Column({ nullable: true })
-  decidedAt: Date = moment.utc().toDate();
+  decidedAt?: Date;
 }

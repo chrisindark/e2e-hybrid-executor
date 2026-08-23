@@ -74,8 +74,13 @@ export class TestRunService {
     const runId: string = run.identifiers[0].runId;
     this.logger.log(`Starting run ${runId}...`);
 
+    if (options.mode === ExecutionMode.AGENTIC_PRIMARY) {
+      return this.runAgenticPrimaryTest(runId, testDefinition, run);
+    }
+
     let browser: Browser | undefined;
-    let overallStatus = 'running' as RunStatus;
+    let overallStatus = RunStatus.RUNNING;
+    let hasRecoveredStep = false;
 
     try {
       await this.runService.updateOverallStatusByRunId(runId, overallStatus);
@@ -122,7 +127,6 @@ export class TestRunService {
           this.logger.debug(
             `Inserted trace event ${JSON.stringify(insertedTraceEvent)}`,
           );
-          overallStatus = RunStatus.PASSED;
         } catch (err) {
           // UI drift detected -> hand off to the agentic executor on the SAME page.
           const end = performance.now();
@@ -157,7 +161,7 @@ export class TestRunService {
             await this.traceEventService.createTraceEvent({
               runId: runId,
               stepId: stepToRun.stepId,
-              mode: ExecutionMode.AGENTIC,
+              mode: ExecutionMode.DETERMINISTIC_WITH_FALLBACK,
               status: recoveryResult.success
                 ? StepStatus.RECOVERED
                 : StepStatus.FAILED,
@@ -188,7 +192,9 @@ export class TestRunService {
             `Inserted promotion candidate ${JSON.stringify(promotionCandidate)}`,
           );
 
-          if (!recoveryResult.success) {
+          if (recoveryResult.success) {
+            hasRecoveredStep = true;
+          } else {
             this.logger.error(`Run failed: ${(err as Error).message}`);
             overallStatus = RunStatus.FAILED;
             break;
@@ -203,13 +209,17 @@ export class TestRunService {
       await browser?.close();
     }
 
+    if (overallStatus !== RunStatus.FAILED) {
+      overallStatus = hasRecoveredStep ? RunStatus.RECOVERED : RunStatus.PASSED;
+    }
+
     const finishedAt = moment.utc().toDate();
     await this.runService.updateOverallStatusAndFinishedAtByRunId(
       runId,
       overallStatus,
       finishedAt,
     );
-    this.logger.log(`Run ${runId} status updated to passed...`);
+    this.logger.log(`Run ${runId} status updated to ${overallStatus}...`);
 
     return {
       run,
@@ -345,6 +355,72 @@ export class TestRunService {
 
     return {
       recoveryResult,
+    };
+  }
+
+  private async runAgenticPrimaryTest(
+    runId: string,
+    testDefinition: TestDefinition,
+    run: any,
+  ) {
+    let browser: Browser | undefined;
+    let overallStatus = RunStatus.RUNNING;
+
+    try {
+      await this.runService.updateOverallStatusByRunId(runId, overallStatus);
+      this.logger.log(
+        `Run ${runId} (agentic-primary) status updated to running...`,
+      );
+      this.logger.log(`Starting browser...`);
+      browser = await chromium.launch({ headless: true });
+      const context = await browser.newContext();
+      const page = await context.newPage();
+
+      const primaryResult = await this.agenticExecutionService.runAgentically(
+        page,
+        testDefinition,
+        12, // maxSteps cap
+        60000, // wall-clock timeout cap
+      );
+
+      for (const actionResult of primaryResult.actions) {
+        const syntheticStepId = `agentic-primary-${runId}-${actionResult.index}`;
+        await this.traceEventService.createTraceEvent({
+          runId,
+          stepId: syntheticStepId,
+          mode: ExecutionMode.AGENTIC_PRIMARY,
+          status: actionResult.status,
+          durationMs: actionResult.durationMs,
+          actionTaken: `${actionResult.action} on "${actionResult.selector ?? actionResult.value ?? ''}"`,
+          reasoning: actionResult.reasoning,
+          customerExplanation: actionResult.customerExplanation,
+          error: actionResult.error,
+        });
+      }
+
+      overallStatus = primaryResult.goalAchieved
+        ? RunStatus.PASSED
+        : RunStatus.FAILED;
+    } catch (err) {
+      this.logger.error(
+        `Agentic-primary run failed: ${(err as Error).message}`,
+      );
+      overallStatus = RunStatus.FAILED;
+    } finally {
+      this.logger.log(`Closing browser...`);
+      await browser?.close();
+    }
+
+    const finishedAt = moment.utc().toDate();
+    await this.runService.updateOverallStatusAndFinishedAtByRunId(
+      runId,
+      overallStatus,
+      finishedAt,
+    );
+    this.logger.log(`Run ${runId} status updated to ${overallStatus}...`);
+
+    return {
+      run,
     };
   }
 }

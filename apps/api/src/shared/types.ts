@@ -5,11 +5,16 @@
  * every layer tags its events to the same StepUUID.
  */
 
-export type ExecutionMode =
-  'deterministic' | 'deterministic-with-fallback' | 'agentic-primary';
+import { ExecutionMode } from './trace-event.entity';
+
+export { ExecutionMode };
 
 export type StepStatus =
-  'pending' | 'running' | 'passed' | 'failed' | 'recovered';
+  | 'pending'
+  | 'running'
+  | 'passed'
+  | 'failed'
+  | 'recovered';
 
 export enum TestAction {
   None = '',
@@ -69,7 +74,7 @@ export interface Run {
   testId: string;
   startedAt: string;
   finishedAt?: string;
-  overallStatus: 'pending' | 'running' | 'passed' | 'failed';
+  overallStatus: 'pending' | 'running' | 'passed' | 'failed' | 'recovered';
   events: TraceEvent[];
 }
 

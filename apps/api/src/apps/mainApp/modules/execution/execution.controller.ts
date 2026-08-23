@@ -1,10 +1,14 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { IsNumber, IsOptional } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional } from 'class-validator';
 
-import { OpenAIDto } from './execution.dto';
+import { ExecutionMode } from '../../../../shared/trace-event.entity';
 import { ExecutionService } from './execution.service';
 
 class RunTestDto {
+  @IsOptional()
+  @IsEnum(ExecutionMode)
+  mode?: ExecutionMode;
+
   @IsOptional()
   @IsNumber()
   forceFailureAtStep?: number;
@@ -27,6 +31,7 @@ export class ExecutionController {
   @Post(':testId/run')
   run(@Param('testId') testId: string, @Body() dto: RunTestDto) {
     return this.executionService.runTest(testId, {
+      mode: dto.mode,
       forceFailureAtStep: dto.forceFailureAtStep,
     });
   }
@@ -36,13 +41,13 @@ export class ExecutionController {
     return this.executionService.reRunTest(testId, order);
   }
 
-  @Post('open-ai/completion')
-  getOpenAICompletion(@Body() dto: OpenAIDto) {
-    return this.executionService.getOpenAICompletion(dto.content);
-  }
+  // @Post('open-ai/completion')
+  // getOpenAICompletion(@Body() dto: OpenAIDto) {
+  //   return this.executionService.getOpenAICompletion(dto.content);
+  // }
 
-  @Post('gemini/completion')
-  getGeminiCompletion(@Body() dto: OpenAIDto) {
-    return this.executionService.getGeminiCompletion(dto.content);
-  }
+  // @Post('gemini/completion')
+  // getGeminiCompletion(@Body() dto: OpenAIDto) {
+  //   return this.executionService.getGeminiCompletion(dto.content);
+  // }
 }

@@ -11,7 +11,8 @@ import {
 
 export enum ExecutionMode {
   DETERMINISTIC = 'deterministic',
-  AGENTIC = 'agentic',
+  DETERMINISTIC_WITH_FALLBACK = 'deterministic-with-fallback',
+  AGENTIC_PRIMARY = 'agentic-primary',
 }
 
 export enum StepStatus {
