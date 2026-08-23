@@ -1,4 +1,39 @@
 .DS_Store
+.AppleDouble
+.LSOverride
+
 node_modules/
+
+# Build output and caches
+.next/
 dist/
 coverage/
+out/
+*.tsbuildinfo
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# Local databases and runtime files
+*.sqlite
+*.sqlite-journal
+*.db
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test artifacts
+playwright-report/
+test-results/
+blob-report/
+
+# Local editor configuration
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
