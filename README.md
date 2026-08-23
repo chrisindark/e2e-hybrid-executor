@@ -21,6 +21,10 @@ results over REST.
 SQLite data is stored in `apps/api/database.sqlite` when the API is started from
 that application directory. TypeORM synchronizes the entities on startup.
 
+### AI Provider Selection
+- **Intent Parsing**: Uses Groq (`llama-3.3-70b-versatile` or `llama3-70b-8192`) for fast, near-instantaneous structured extraction of test steps from natural language.
+- **Agentic Recovery**: Uses Gemini (`gemini-2.5-flash` or similar) for its strong multi-modal capabilities and deep reasoning context window during complex DOM analysis and self-healing.
+
 ## Prerequisites
 
 - Node.js 20 or newer
@@ -32,7 +36,7 @@ that application directory. TypeORM synchronizes the entities on startup.
 
 ```bash
 # from repo root
-npm install
+pnpm install
 
 # Playwright needs its browser binary
 npx playwright install chromium --with-deps
@@ -50,8 +54,8 @@ cp apps/web/.env.local.example apps/web/.env.local
 Two terminals:
 
 ```bash
-npm run dev:api   # http://localhost:3001
-npm run dev:web   # http://localhost:3000
+pnpm run dev:api   # http://localhost:3001
+pnpm run dev:web   # http://localhost:3000
 ```
 
 Open http://localhost:3000.
