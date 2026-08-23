@@ -28,11 +28,29 @@ async function bootstrap() {
 
     app.use(helmet(helmetConfig));
 
+    const corsOriginsRaw = app
+      .get(ConfigService)
+      .get<string>('CORS_ORIGIN_WHITELIST');
+    const corsOrigins = corsOriginsRaw
+      ? corsOriginsRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
+    const corsMethodsRaw = app
+      .get(ConfigService)
+      .get<string>('CORS_ALLOW_METHODS');
+    const corsMethods = corsMethodsRaw
+      ? corsMethodsRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
+
     app.enableCors({
-      origin:
-        app.get(ConfigService).get('CORS_ORIGIN_WHITELIST').split(',') || [],
-      methods:
-        app.get(ConfigService).get('CORS_ALLOW_METHODS').split(',') || [],
+      origin: corsOrigins,
+      methods: corsMethods,
       credentials: true,
       maxAge: 3600,
     });
@@ -51,9 +69,13 @@ async function bootstrap() {
     );
     app.enableShutdownHooks(['SIGINT', 'SIGTERM']);
 
-    const port = Number(app.get(ConfigService).get('APP_PORT')) ?? 3001;
-    const address =
-      String(app.get(ConfigService).get('APP_ADDRESS')) ?? '0.0.0.0';
+    const rawPort =
+      app.get(ConfigService).get<string | number>('APP_PORT') ?? 3001;
+    const port = Number(rawPort);
+
+    const rawAddress =
+      app.get(ConfigService).get<string>('APP_ADDRESS') ?? '0.0.0.0';
+    const address = String(rawAddress);
 
     await app.listen(port, address);
 

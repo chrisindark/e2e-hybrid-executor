@@ -13,6 +13,7 @@ export enum RunStatus {
   RUNNING = 'running',
   PASSED = 'passed',
   FAILED = 'failed',
+  RECOVERED = 'recovered',
 }
 
 @Entity('runs')
@@ -27,7 +28,7 @@ export class Run {
   startedAt: Date = moment.utc().toDate();
 
   @Column({ nullable: true })
-  finishedAt?: Date = moment.utc().toDate();
+  finishedAt?: Date;
 
   @Column({
     type: 'text',
