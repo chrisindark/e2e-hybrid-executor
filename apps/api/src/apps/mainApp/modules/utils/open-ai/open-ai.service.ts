@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
+import { z } from 'zod';
 
 @Injectable()
 export class OpenAIService {
@@ -26,7 +27,7 @@ export class OpenAIService {
         apiKey: this.apiKey,
       });
     } catch (err) {
-      this.logger.error('createOpenAIClient', err);
+      this.logger.error(`createOpenAIClient: ${err}`);
     }
   }
 
@@ -52,19 +53,11 @@ export class OpenAIService {
     }
   }
 
-  private isGpt5FamilyModel(model: string | undefined | null): boolean {
-    const modelLower = String(model ?? '')
-      .trim()
-      .toLowerCase();
-
-    return modelLower.startsWith('gpt-5');
-  }
-
   async normalCompletion(
     userPrompt: string,
     systemPrompt: string = '',
     model: string = 'openai/gpt-oss-20b',
-    schema: any = null,
+    schema: z.ZodTypeAny | null = null,
     schemaName: string = '',
   ) {
     try {
@@ -87,14 +80,13 @@ export class OpenAIService {
         response_format: schema
           ? zodResponseFormat(schema, schemaName)
           : { type: 'text' },
-        max_completion_tokens: 1000,
+        max_completion_tokens: 7000,
       });
       const endTime = performance.now();
       const latency = (endTime - startTime) / 1000;
       this.logger.debug(
         `Completion took ${latency} seconds to generate the following response: ${JSON.stringify(completion)}`,
       );
-      // log to langfuse
 
       if (!completion?.choices || completion?.choices.length === 0) {
         const errorMsg = 'OpenAI API returned empty choices';
@@ -108,8 +100,8 @@ export class OpenAIService {
       const usage = completion.usage;
 
       return { output, usage };
-    } catch (error) {
-      this.handleError(error);
+    } catch (err) {
+      this.handleError(err);
 
       return null;
     }

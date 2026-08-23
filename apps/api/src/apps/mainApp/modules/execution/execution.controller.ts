@@ -14,8 +14,13 @@ class RunTestDto {
 export class ExecutionController {
   constructor(private readonly executionService: ExecutionService) {}
 
-  @Get('run/:runId')
-  getRun(@Param('runId') runId: string) {
+  @Get()
+  list() {
+    return this.executionService.list();
+  }
+
+  @Get(':runId')
+  get(@Param('runId') runId: string) {
     return this.executionService.getRun(runId);
   }
 
@@ -32,7 +37,12 @@ export class ExecutionController {
   }
 
   @Post('open-ai/completion')
-  getCompletion(@Body() dto: OpenAIDto) {
-    return this.executionService.getCompletion(dto.content);
+  getOpenAICompletion(@Body() dto: OpenAIDto) {
+    return this.executionService.getOpenAICompletion(dto.content);
+  }
+
+  @Post('gemini/completion')
+  getGeminiCompletion(@Body() dto: OpenAIDto) {
+    return this.executionService.getGeminiCompletion(dto.content);
   }
 }

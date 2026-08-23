@@ -28,7 +28,6 @@ async function bootstrap() {
 
     app.use(helmet(helmetConfig));
 
-    app.enableCors({ origin: true }); // fine for a take-home prototype; tighten for real deployment
     app.enableCors({
       origin:
         app.get(ConfigService).get('CORS_ORIGIN_WHITELIST').split(',') || [],

@@ -1,0 +1,117 @@
+{
+    "testId": "fixture-saucedemo-checkout",
+    "name": "Standard user completes checkout",
+    "originalIntent": "Log in as standard_user, add the Sauce Labs Backpack to the cart, and complete checkout.",
+    "targetUrl": "https://www.saucedemo.com",
+    "steps": [
+      {
+        "stepId": "step-1-goto",
+        "order": 1,
+        "description": "Navigate to Sauce Demo",
+        "action": "goto",
+        "value": "https://www.saucedemo.com",
+        "expectedOutcome": "Login page is loaded"
+      },
+      {
+        "stepId": "step-2-username",
+        "order": 2,
+        "description": "Enter username",
+        "action": "fill",
+        "selector": "#user-name",
+        "value": "standard_user",
+        "expectedOutcome": "Username field contains 'standard_user'"
+      },
+      {
+        "stepId": "step-3-password",
+        "order": 3,
+        "description": "Enter password",
+        "action": "fill",
+        "selector": "#password",
+        "value": "secret_sauce",
+        "expectedOutcome": "Password field contains 'secret_sauce'"
+      },
+      {
+        "stepId": "step-4-login",
+        "order": 4,
+        "description": "Click login button",
+        "action": "click",
+        "selector": "#login-button",
+        "expectedOutcome": "User is redirected to the inventory page"
+      },
+      {
+        "stepId": "step-5-add-to-cart",
+        "order": 5,
+        "description": "Add Sauce Labs Backpack to cart",
+        "action": "click",
+        "selector": "[data-test=\"add-to-cart-sauce-labs-backpack\"]",
+        "expectedOutcome": "Cart icon shows 1 item"
+      },
+      {
+        "stepId": "step-6-open-cart",
+        "order": 6,
+        "description": "Open the cart",
+        "action": "click",
+        "selector": ".shopping_cart_link",
+        "expectedOutcome": "Cart page shows the added item"
+      },
+      {
+        "stepId": "step-7-checkout",
+        "order": 7,
+        "description": "Begin checkout",
+        "action": "click",
+        "selector": "#checkout",
+        "expectedOutcome": "Checkout information page is shown"
+      },
+      {
+        "stepId": "step-8-first-name",
+        "order": 8,
+        "description": "Enter first name",
+        "action": "fill",
+        "selector": "#first-name",
+        "value": "Jane",
+        "expectedOutcome": "First name field contains 'Jane'"
+      },
+      {
+        "stepId": "step-9-last-name",
+        "order": 9,
+        "description": "Enter last name",
+        "action": "fill",
+        "selector": "#last-name",
+        "value": "Doe",
+        "expectedOutcome": "Last name field contains 'Doe'"
+      },
+      {
+        "stepId": "step-10-postal-code",
+        "order": 10,
+        "description": "Enter postal code",
+        "action": "fill",
+        "selector": "#postal-code",
+        "value": "12345",
+        "expectedOutcome": "Postal code field contains '12345'"
+      },
+      {
+        "stepId": "step-11-continue",
+        "order": 11,
+        "description": "Continue to overview",
+        "action": "click",
+        "selector": "#continue",
+        "expectedOutcome": "Checkout overview page is shown"
+      },
+      {
+        "stepId": "step-12-finish",
+        "order": 12,
+        "description": "Finish checkout",
+        "action": "click",
+        "selector": "#finish",
+        "expectedOutcome": "Order confirmation page is shown"
+      },
+      {
+        "stepId": "step-13-confirm",
+        "order": 13,
+        "description": "Verify order confirmation is visible",
+        "action": "assertVisible",
+        "selector": ".complete-header",
+        "expectedOutcome": "'Thank you for your order!' message is visible"
+      }
+    ]
+}

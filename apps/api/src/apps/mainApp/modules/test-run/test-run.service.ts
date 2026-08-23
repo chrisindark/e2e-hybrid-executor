@@ -2,11 +2,13 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as moment from 'moment';
 import { Browser, chromium, Page, Response } from 'playwright';
 
-import { RunStatus } from '../../../../shared/run.entity';
+import { Run, RunStatus } from '../../../../shared/run.entity';
+import { TestDefinition } from '../../../../shared/test-definition.entity';
 import { TestStep } from '../../../../shared/test-step.entity';
 import {
   ExecutionMode,
   StepStatus,
+  TraceEvent,
 } from '../../../../shared/trace-event.entity';
 import { AgenticExecutionService } from '../agentic-execution/agentic-execution.service';
 import { RunOptions } from '../execution/execution.dto';
@@ -14,6 +16,8 @@ import { PromotionCandidateService } from '../promotion-candidate/promotion-cand
 import { RunService } from '../run/run.service';
 import { TestStoreService } from '../test-store/test-store.service';
 import { TraceEventService } from '../trace-event/trace-event.service';
+
+export type TestRun = Run & { events: TraceEvent[] };
 
 @Injectable()
 export class TestRunService {
@@ -35,6 +39,25 @@ export class TestRunService {
     return { run: run, traceEvents: traceEventService };
   }
 
+  async list() {
+    const runs = await this.runService.list();
+    const traceEvents = await this.traceEventService.list();
+
+    const testRunList: TestRun[] = [];
+    runs.map((r) => {
+      const testRun = { ...r } as TestRun;
+
+      const events: TraceEvent[] = traceEvents.filter(
+        (v) => r.runId === v.runId,
+      );
+      testRun.events = events;
+
+      testRunList.push(testRun);
+    });
+
+    return testRunList;
+  }
+
   async runTest(testId: string, options: RunOptions = {}) {
     const testStore = await this.testStoreService.get(testId);
 
@@ -44,8 +67,10 @@ export class TestRunService {
     this.logger.log(
       `Running test ${testId} with options: ${JSON.stringify(options)}`,
     );
+    const testDefinition = testStore.testDefinition;
 
     const run = await this.runService.createRun(testId);
+    this.logger.debug(`Inserted run ${JSON.stringify(run)}`);
     const runId: string = run.identifiers[0].runId;
     this.logger.log(`Starting run ${runId}...`);
 
@@ -74,7 +99,11 @@ export class TestRunService {
           this.logger.debug(
             `Running deterministic step ${stepToRun.order} on "${stepToRun.selector ?? stepToRun.value}"`,
           );
-          const response = await this.executeDeterministicStep(page, stepToRun);
+          const response = await this.executeDeterministicStep(
+            page,
+            stepToRun,
+            testDefinition,
+          );
           this.logger.debug(
             `Response from deterministic step ${stepToRun.order}: ${JSON.stringify(response)}`,
           );
@@ -83,12 +112,12 @@ export class TestRunService {
           const insertedTraceEvent =
             await this.traceEventService.createTraceEvent({
               runId: runId,
-              stepId: step.stepId,
+              stepId: stepToRun.stepId,
               mode: ExecutionMode.DETERMINISTIC,
               status: StepStatus.PASSED,
               durationMs: end - start,
               actionTaken: `${stepToRun.action} on "${stepToRun.selector ?? stepToRun.value}"`,
-              customerExplanation: `Step "${step.description}" completed as scripted.`,
+              customerExplanation: `Step "${stepToRun.description}" completed as scripted.`,
             });
           this.logger.debug(
             `Inserted trace event ${JSON.stringify(insertedTraceEvent)}`,
@@ -99,18 +128,18 @@ export class TestRunService {
           const end = performance.now();
           const failureReason = (err as Error).message;
           this.logger.warn(
-            `Step ${step.order} failed deterministically: ${failureReason}`,
+            `Step ${stepToRun.order} failed deterministically: ${failureReason}`,
           );
 
           const insertedTraceEvent =
             await this.traceEventService.createTraceEvent({
               runId: runId,
-              stepId: step.stepId,
+              stepId: stepToRun.stepId,
               mode: ExecutionMode.DETERMINISTIC,
               status: StepStatus.FAILED,
               durationMs: end - start,
               error: failureReason,
-              customerExplanation: `Step "${step.description}" failed as scripted - handing off to agentic recovery.`,
+              customerExplanation: `Step "${stepToRun.description}" failed as scripted - handing off to agentic recovery.`,
             });
           this.logger.debug(
             `Inserted trace event ${JSON.stringify(insertedTraceEvent)}`,
@@ -119,14 +148,15 @@ export class TestRunService {
           const recoveryStart = performance.now();
           const recoveryResult = await this.agenticExecutionService.recoverStep(
             page,
-            step,
+            stepToRun,
+            testDefinition,
             failureReason,
           );
           const recoveryEnd = performance.now();
           const recoveryInsertedTraceEvent =
             await this.traceEventService.createTraceEvent({
               runId: runId,
-              stepId: step.stepId,
+              stepId: stepToRun.stepId,
               mode: ExecutionMode.AGENTIC,
               status: recoveryResult.success
                 ? StepStatus.RECOVERED
@@ -149,8 +179,8 @@ export class TestRunService {
             await this.promotionCandidateService.createCandidate({
               runId: runId,
               testId: testId,
-              stepId: step.stepId,
-              originalStep: step,
+              stepId: stepToRun.stepId,
+              originalStep: stepToRun,
               proposedStep: recoveryResult.newStep,
               reasoning: recoveryResult.reasoning,
             });
@@ -186,11 +216,17 @@ export class TestRunService {
     };
   }
 
-  private async executeDeterministicStep(page: Page, step: TestStep) {
+  private async executeDeterministicStep(
+    page: Page,
+    step: TestStep,
+    test: TestDefinition,
+  ) {
     let response: Response | null = null;
     switch (step.action) {
       case 'goto':
-        response = await page.goto(step.value ?? '', { timeout: 10000 });
+        response = await page.goto(step.value ?? test.targetUrl, {
+          timeout: 10000,
+        });
         break;
       case 'click':
         await page.click(step.selector, { timeout: 5000 });
@@ -240,7 +276,7 @@ export class TestRunService {
       throw new NotFoundException('Test not found');
     }
     this.logger.log(`Running test ${testId}}`);
-
+    const testDefinition = testStore.testDefinition;
     let browser: Browser | undefined;
     let recoveryResult = null;
     try {
@@ -259,9 +295,13 @@ export class TestRunService {
         const start = performance.now();
         try {
           this.logger.debug(
-            `Running deterministic step ${stepToRun.order} on "${stepToRun.selector ?? stepToRun.value}"`,
+            `Running deterministic step ${stepToRun.order} on "${stepToRun.selector}" with value "${stepToRun.value}"`,
           );
-          const response = await this.executeDeterministicStep(page, stepToRun);
+          const response = await this.executeDeterministicStep(
+            page,
+            stepToRun,
+            testDefinition,
+          );
           this.logger.debug(
             `Response from deterministic step ${stepToRun.order}: ${JSON.stringify(response)}`,
           );
@@ -287,12 +327,11 @@ export class TestRunService {
           recoveryResult = await this.agenticExecutionService.recoverStep(
             page,
             stepToRun,
-            '',
+            testDefinition,
+            failureReason,
           );
 
-          if (shouldForceBreak) {
-            break;
-          }
+          break;
         }
       }
     } catch (err) {

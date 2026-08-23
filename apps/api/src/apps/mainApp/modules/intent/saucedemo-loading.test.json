@@ -1,0 +1,24 @@
+{
+    "testId": "fc5102df-7bfd-4942-a8e1-400566e3af31",
+    "name": "Standard page load",
+    "originalIntent": "Load the url and check if the website loads correctly.",
+    "targetUrl": "https://www.saucedemo.com",
+    "steps": [
+        {
+            "stepId": "step-1-goto",
+            "order": 1,
+            "description": "Navigate to Sauce Demo",
+            "action": "goto",
+            "value": "https://www.saucedemo.com",
+            "expectedOutcome": "Login page is loaded"
+        },
+        {
+            "stepId": "step-2-confirm-text",
+            "order": 2,
+            "description": "Check if page loaded",
+            "action": "assertText",
+            "selector": ".login_logo",
+            "expectedOutcome": "'Swag labs' text is visible!"
+        }
+    ]
+}

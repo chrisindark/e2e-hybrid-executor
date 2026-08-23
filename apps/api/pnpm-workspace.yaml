@@ -1,6 +1,8 @@
 allowBuilds:
+  '@google/genai': false
   '@nestjs/core': false
   '@scarf/scarf': set this to true or false
   better-sqlite3: false
   msgpackr-extract: set this to true or false
+  protobufjs: false
   unrs-resolver: set this to true or false

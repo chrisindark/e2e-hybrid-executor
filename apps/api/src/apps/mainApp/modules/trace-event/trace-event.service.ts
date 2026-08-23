@@ -47,4 +47,12 @@ export class TraceEventService {
       runId: runId,
     });
   }
+
+  async get(eventId: string) {
+    return await this.traceEventRepository.findOneBy({ eventId: eventId });
+  }
+
+  async list() {
+    return await this.traceEventRepository.find();
+  }
 }

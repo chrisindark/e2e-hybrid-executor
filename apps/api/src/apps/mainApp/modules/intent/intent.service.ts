@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
-import * as moment from 'moment';
 
 import { TestStep } from '../../../../shared/test-step.entity';
 import { OpenAIService } from '../utils/open-ai/open-ai.service';
@@ -53,14 +52,6 @@ Respond ONLY with valid JSON matching this shape, no markdown fences, no prose:
       intent,
       systemPrompt,
     );
-    // const completion = await this.client.chat.completions.create({
-    //   model: 'openai/gpt-oss-20b',
-    //   messages: [
-    //     { role: 'system', content: systemPrompt },
-    //     { role: 'user', content: intent },
-    //   ],
-    //   response_format: { type: 'json_object' },
-    // });
 
     const raw = completion?.output ?? '{"steps":[]}';
     const parsed = JSON.parse(raw) as { steps: Omit<TestStep, 'stepId'>[] };
@@ -70,17 +61,15 @@ Respond ONLY with valid JSON matching this shape, no markdown fences, no prose:
       ...s,
     }));
 
-    const now = moment.utc().toDate();
-
     // add code to save this to test definition and test step entities
     return {
-      testId: randomUUID(),
+      // testId: randomUUID(),
       name: intent.slice(0, 60),
       originalIntent: intent,
       targetUrl,
       steps,
-      createdAt: now,
-      updatedAt: now,
+      // createdAt: now,
+      // updatedAt: now,
     };
   }
 }

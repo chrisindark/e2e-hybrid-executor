@@ -26,7 +26,7 @@ export const ALLOWED_ACTIONS = new Set([
 ]);
 
 @Injectable()
-export class E2eTestsService {
+export class GenerationService {
   constructor(private readonly testStoreService: TestStoreService) {}
 
   async create(dto: CreateE2eTestDto) {
