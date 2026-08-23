@@ -256,7 +256,7 @@ export class TestRunService {
         response = null;
         break;
       case 'assertText':
-        await page.waitForSelector(step.selector, {
+        await page.waitForSelector(`${step.selector}:has-text("${step.value}")`, {
           timeout: 2000,
         });
         response = null;
