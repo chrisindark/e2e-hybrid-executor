@@ -11,7 +11,7 @@ import configuration from '../../config/configuration';
 import { CorrelationIdMiddleware } from '../../middlewares/correlation-id.middleware';
 import { RequestLoggingMiddleware } from '../../middlewares/request-logging.middleware';
 import { AgenticExecutionModule } from './modules/agentic-execution/agentic-execution.module';
-import { E2eTestsModule } from './modules/e2e-tests/e2e-tests.module';
+import { GenerationModule } from './modules/e2e-tests/e2e-tests.module';
 import { ExecutionModule } from './modules/execution/execution.module';
 import { IntentModule } from './modules/intent/intent.module';
 import { PingModule } from './modules/ping/ping.module';
@@ -19,6 +19,7 @@ import { PromotionCandidateModule } from './modules/promotion-candidate/promotio
 import { RunModule } from './modules/run/run.module';
 import { TraceEventModule } from './modules/trace-event/trace-event.module';
 import { AsyncLocalStorageModule } from './modules/utils/async-local-storage/async-local-storage.module';
+import { GeminiModule } from './modules/utils/gemini/gemini.module';
 import { OpenAIModule } from './modules/utils/open-ai/open-ai.module';
 import { getEnvFilePath } from './modules/utils/utils.helper';
 import { UtilsModule } from './modules/utils/utils.module';
@@ -41,10 +42,11 @@ import { UtilsModule } from './modules/utils/utils.module';
     UtilsModule,
     PingModule,
     IntentModule,
-    E2eTestsModule,
+    GenerationModule,
     RunModule,
     TraceEventModule,
     OpenAIModule,
+    GeminiModule,
     ExecutionModule,
     AgenticExecutionModule,
     PromotionCandidateModule,

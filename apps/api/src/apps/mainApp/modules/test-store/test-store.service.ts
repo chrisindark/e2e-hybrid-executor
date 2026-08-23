@@ -100,7 +100,7 @@ export class TestStoreService {
     testDefinitions.map((td) => {
       const testStore = { ...td } as TestStore;
 
-      const steps: TestStep[] = testSteps.filter((v) => (td.testId = v.testId));
+      const steps: TestStep[] = testSteps.filter((v) => td.testId === v.testId);
       testStore.steps = steps;
 
       testStoreList.push(testStore);
@@ -136,7 +136,9 @@ export class TestStoreService {
       stepId,
       proposedStep,
     );
-    this.logger.debug(`Updated test step response: ${updatedTestStepResponse}`);
+    this.logger.debug(
+      `Updated test step response: ${JSON.stringify(updatedTestStepResponse)}`,
+    );
 
     return updatedTestStepResponse;
   }
