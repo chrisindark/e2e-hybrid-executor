@@ -31,12 +31,21 @@ export class TraceEventService {
     customerExplanation: string;
     error?: string;
   }) {
+    const { durationMs, ...rest } = params;
+
     const traceEvent: TraceEvent = {
       eventId: randomUUID(),
       timestamp: moment.utc().toDate(),
       createdAt: moment.utc().toDate(),
       updatedAt: moment.utc().toDate(),
-      ...params,
+      ...rest,
+      // Durations are measured with performance.now(), which returns fractional
+      // milliseconds, but the column is an integer. Postgres rejects values such
+      // as "294.974..." outright, so round here (the single write path) rather
+      // than at every call site.
+      ...(typeof durationMs === 'number' && Number.isFinite(durationMs)
+        ? { durationMs: Math.round(durationMs) }
+        : {}),
     };
 
     return await this.traceEventRepository.insert(traceEvent);
