@@ -16,6 +16,10 @@ export class TestStep {
   @PrimaryColumn('uuid')
   stepId: string = randomUUID();
 
+  /** Set by the database from the session tenant; never provided by callers. */
+  @Column({ type: 'uuid', insert: false, update: false })
+  tenantId?: string;
+
   @Column()
   order: number = 0;
 

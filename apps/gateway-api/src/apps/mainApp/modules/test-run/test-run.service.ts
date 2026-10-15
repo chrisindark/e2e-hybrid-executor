@@ -60,6 +60,7 @@ export class TestRunService {
 
   async createQueuedRun(testId: string) {
     const testStore = await this.testStoreService.get(testId);
+
     if (!testStore.testDefinition) {
       throw new NotFoundException('Test not found');
     }
@@ -69,6 +70,7 @@ export class TestRunService {
     );
     const runId = run.identifiers[0].runId as string;
     await this.runService.updateOverallStatusByRunId(runId, RunStatus.QUEUED);
+
     return runId;
   }
 
@@ -76,7 +78,11 @@ export class TestRunService {
     await this.runService.failRun(runId, error);
   }
 
-  async runTest(testId: string, options: RunOptions = {}, queuedRunId?: string) {
+  async runTest(
+    testId: string,
+    options: RunOptions = {},
+    queuedRunId?: string,
+  ) {
     let testStore = await this.testStoreService.get(testId);
 
     if (!testStore.testDefinition) {
@@ -85,17 +91,27 @@ export class TestRunService {
     this.logger.log(
       `Running test ${testId} with options: ${JSON.stringify(options)}`,
     );
-    let run = queuedRunId
+    const run = queuedRunId
       ? { identifiers: [{ runId: queuedRunId }] }
-      : await this.runService.createRun(testId, testStore.testDefinition.currentVersionId);
+      : await this.runService.createRun(
+          testId,
+          testStore.testDefinition.currentVersionId,
+        );
     this.logger.debug(`Inserted run ${JSON.stringify(run)}`);
     const runId: string = run.identifiers[0].runId;
-    const runRecord = queuedRunId ? await this.runService.get(runId) : undefined;
-    const versionId = runRecord?.versionId ?? testStore.testDefinition.currentVersionId;
+    const runRecord = queuedRunId
+      ? await this.runService.get(runId)
+      : undefined;
+    const versionId =
+      runRecord?.versionId ?? testStore.testDefinition.currentVersionId;
     let testDefinition = testStore.testDefinition;
+
     if (versionId) {
       const version = await this.testStoreService.getVersion(versionId);
-      testStore = { testDefinition: version.testDefinition, testSteps: version.testSteps };
+      testStore = {
+        testDefinition: version.testDefinition,
+        testSteps: version.testSteps,
+      };
       testDefinition = version.testDefinition;
     }
     this.logger.log(`Starting run ${runId}...`);
@@ -289,8 +305,11 @@ export class TestRunService {
       case 'assertText':
         {
           const expectedText = step.expectedOutcome || step.value;
+
           if (!expectedText?.trim()) {
-            throw new Error(`Assertion step ${step.stepId} has no expected text defined.`);
+            throw new Error(
+              `Assertion step ${step.stepId} has no expected text defined.`,
+            );
           }
           const locator = page.locator(step.selector);
           await locator.waitFor({ state: 'visible', timeout: 2000 });

@@ -28,6 +28,10 @@ export class TraceEvent {
   @PrimaryColumn('uuid')
   eventId: string = randomUUID();
 
+  /** Set by the database from the session tenant; never provided by callers. */
+  @Column({ type: 'uuid', insert: false, update: false })
+  tenantId?: string;
+
   @Column('uuid')
   stepId: string = '';
 

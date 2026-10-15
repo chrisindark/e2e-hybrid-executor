@@ -10,11 +10,7 @@ import { ExecutionMode } from './trace-event.entity';
 export { ExecutionMode };
 
 export type StepStatus =
-  | 'pending'
-  | 'running'
-  | 'passed'
-  | 'failed'
-  | 'recovered';
+  'pending' | 'running' | 'passed' | 'failed' | 'recovered';
 
 export enum TestAction {
   None = '',

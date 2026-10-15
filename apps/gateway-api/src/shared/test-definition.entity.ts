@@ -14,6 +14,10 @@ export class TestDefinition {
   @PrimaryColumn('uuid')
   testId: string = randomUUID();
 
+  /** Set by the database from the session tenant; never provided by callers. */
+  @Column({ type: 'uuid', insert: false, update: false })
+  tenantId?: string;
+
   @Column()
   name: string = '';
 

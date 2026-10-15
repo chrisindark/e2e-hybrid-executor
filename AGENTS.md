@@ -17,28 +17,34 @@ in-flight state as authoritative over committed state.
   `packages/db/src/tenant-context.ts`, `packages/queue/src/envelope.ts`, and
   `packages/telemetry/src/request-context.ts` hold real code. Don't assume a
   package listed in a plan document exists or works.
-- `packages/db/src/` also contains emitted build output (`data-source.js`,
-  `.d.ts`, `.js.map`) sitting next to the `.ts` sources — edit the `.ts`, never
-  the emitted files.
 - The app is a single NestJS process on TypeORM/Postgres (`synchronize: false`,
   migrations in `packages/db`). There is still **no real queue**: runs execute on
   an unawaited in-process promise, so the process holds the work. The target is
   four deployables + Postgres/RLS + Redis/BullMQ. Do not "fix" toward the target
   unless the task says so; note it instead.
-- `.env.example` still lists `DATABASE_PATH=database.sqlite` and a
-  `database.sqlite` file lingers locally, but the active datasource is Postgres —
-  don't trust that var.
+- Postgres is the only real datasource; a `database.sqlite` file may still linger
+  locally but nothing reads it (the stray `DATABASE_PATH` var is gone from
+  `.env.example`). There are **two** DB URLs: `DATABASE_URL` is the owning role
+  used for migrations/DDL, and `DATABASE_APP_URL` is `app_runtime` — a
+  non-superuser LOGIN that runtime traffic uses so RLS is enforced at all. Prefer
+  the admin URL for `psql`, the app URL when you need to see what RLS does.
+- Tenant isolation is **live**. Migrations
+  `1792066610064-tenant-isolation-rls` (tables, policies, `current_tenant_id()`)
+  and `1792069042212-tenant-roles-and-defaults` (roles, plus a
+  `current_tenant_id()` default on every `tenantId`) are both applied. The
+  request-scoped wiring lives in `apps/gateway-api/src/database/` —
+  `tenant-scope.interceptor.ts`, `tenant-repository.ts`, `tenant-context.ts`,
+  `tenant-transaction.service.ts`. See `01.md` §2.2/§3.1.
 
 ## Documentation map — what to trust
 
-| File                            | Status                                      | Use                                                                             |
-| ------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
-| `Plans.md`                      | Target architecture for the migration       | Authority on the intended end state and why                                     |
-| `01.md`                         | RFC/PRD: foundation, tenancy, TestSpec v1   | Authority on workspace layout, RLS, contracts                                   |
-| `00-TECH-DEBT-AUDIT.md`         | **Completed** v0 defect list (AUDIT-01..07) | Historical record of the fixes; its fixed items are now invariants (see bottom) |
-| `Architecture.md`               | Describes the **v0** loop                   | Background only; superseded by `Plans.md`                                       |
-| `README.md`, `apps/*/README.md` | Partially stale                             | Verify paths/commands against the code before trusting                          |
-| `Leadership_Document.md`        | Manager 90-day plan, not engineering spec   | Context only; do not treat as requirements                                      |
+| File                            | Status                                    | Use                                                                          |
+| ------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
+| `Plans.md`                      | Target architecture for the migration     | Authority on the intended end state and why                                  |
+| `01.md`                         | Phase-0 RLS + topology gaps               | §2.2/§3 is written against the applied state; §1.1 and `TEST-SPEC-01` remain |
+| `Architecture.md`               | Describes the **v0** loop                 | Background only; superseded by `Plans.md`                                    |
+| `README.md`, `apps/*/README.md` | Partially stale                           | Verify paths/commands against the code before trusting                       |
+| `Leadership_Document.md`        | Manager 90-day plan, not engineering spec | Context only; do not treat as requirements                                   |
 
 ## Layout
 
@@ -123,3 +129,34 @@ All seven are fixed. They encode subtle decisions that look like complexity to
 - `JwtAuthGuard` is global via `APP_GUARD`; opt out with `@Public()`, never by
   removing the guard.
 - `synchronize` stays `false`; schema changes go through migrations.
+
+## Tenancy invariants (RLS) — do not undo
+
+Multi-tenancy is enforced by Postgres RLS, not by application `WHERE` clauses. It
+works only if these hold:
+
+- `tenantId` columns are `@Column({ type: 'uuid', insert: false, update: false })`.
+  The app never writes the tenant; the DB fills it from
+  `DEFAULT current_tenant_id()`. Making it insertable re-opens request-payload
+  tenant spoofing.
+- Isolated repositories come from `TenantRepositoriesModule` (a `@Global()`
+  module that wraps each `@InjectRepository` provider with the ALS-bound
+  manager). Don't reintroduce `TypeOrmModule.forFeature` in a feature module —
+  it hands back the root manager and silently drops tenancy.
+- `TenantScopeInterceptor` is the only thing that sets `app.tenant_id` for a
+  request. It uses a session-scoped `set_config('app.tenant_id', …, false)` on a
+  dedicated `QueryRunner`, cleared before release — not `SET LOCAL`, because the
+  queued run is fire-and-forget and outlives the request. `runWithTenant` gives
+  that run its own scoped connection.
+- The GUC name itself is exported as `TENANT_SETTING` from `@repo/db` and imported
+  by the gateway's `TenantTransactionService`. Don't re-type `'app.tenant_id'` in a
+  new client — a mismatch silently disables the policies rather than failing.
+  Migrations keep the literal on purpose; an applied migration is a historical
+  record and must not track a source constant.
+- Runtime must connect as a non-superuser. `FORCE ROW LEVEL SECURITY` still does
+  **not** apply to a superuser, so connecting as `orchestrator` makes every policy
+  a no-op. `PostgresService` warns at boot if the runtime connection is a
+  superuser.
+- `tenantId` columns are populated by the DB default, so any code that inserts
+  must be inside a tenant scope. An insert with no tenant set fails closed
+  (SQLSTATE 42501, or a NOT NULL violation).

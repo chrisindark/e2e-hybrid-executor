@@ -100,9 +100,15 @@ export class PromotionCandidateService {
 
     const updateResponse = await this.promotionCandidateRepository.update(
       promotionCandidate.promotionCandidateId,
-      { ...updatedPromotionCandidate, createdVersionId: promotionCandidate.createdVersionId },
+      {
+        ...updatedPromotionCandidate,
+        createdVersionId: promotionCandidate.createdVersionId,
+      },
     );
-    this.logger.debug(`Updated PromotionCandidate ${promotionCandidate.promotionCandidateId}:`, updateResponse);
+    this.logger.debug(
+      `Updated PromotionCandidate ${promotionCandidate.promotionCandidateId}:`,
+      updateResponse,
+    );
 
     return { updateResponse, updatedTestStepResponse };
   }

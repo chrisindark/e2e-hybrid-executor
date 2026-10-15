@@ -17,7 +17,11 @@
     "format:check": "pnpm -r --if-present run format:check",
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "db:migrate": "pnpm --filter @repo/db run db:migrate",
+    "db:rollback": "pnpm --filter @repo/db run db:rollback",
+    "db:show": "pnpm --filter @repo/db run db:show",
+    "db:generate": "pnpm --filter @repo/db run db:generate"
   },
   "devDependencies": {
     "turbo": "^2.11.8"
