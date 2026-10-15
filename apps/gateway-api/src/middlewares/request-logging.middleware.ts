@@ -1,7 +1,7 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { RequestContext } from '@repo/telemetry';
 import type { NextFunction, Request, Response } from 'express';
 
-import { asyncLocalStorage } from '../apps/mainApp/modules/utils/async-local-storage/async-local-storage.provider';
 import { HTTP_REQUESTS_SHOULD_NOT_LOG } from './middleware.constants';
 
 @Injectable()
@@ -64,16 +64,16 @@ export class RequestLoggingMiddleware implements NestMiddleware {
   }
 
   private contextFields(): Record<string, unknown> {
-    const store = asyncLocalStorage.getStore();
+    const context = RequestContext.getOptional();
     const fields: Record<string, unknown> = {};
-    const correlationId = store?.correlationId;
-    const tenantId = store?.tenantId;
+    const correlationId = context?.correlationId;
+    const tenantId = context?.tenantId;
 
     if (correlationId !== undefined && correlationId !== '') {
       fields.correlationId = correlationId;
     }
 
-    if (tenantId !== undefined && tenantId !== '') {
+    if (tenantId !== undefined && tenantId !== '' && tenantId !== 'anonymous') {
       fields.tenantId = tenantId;
     }
 

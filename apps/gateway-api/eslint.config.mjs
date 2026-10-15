@@ -99,6 +99,28 @@ export default [
       '.eslintrc.js',
     ],
   },
+  {
+    // Domain modules must stay transport-agnostic. The dependency direction is
+    // HTTP -> domain only: `src/modules/**` may never import the HTTP entry
+    // point (`src/apps/mainApp/**`), its controllers, or its DTOs. If a domain
+    // service needs request data, model it as a transport-agnostic input type
+    // (see e.g. `src/modules/e2e-tests/e2e-tests.types.ts`).
+    files: ['src/modules/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/apps/mainApp/**', '**/apps/mainApp'],
+              message:
+                'Domain code (src/modules/**) must not depend on the HTTP entry point (src/apps/mainApp/**). Declare a transport-agnostic input type instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
   eslintPluginPrettierRecommended,
 ];

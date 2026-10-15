@@ -4,9 +4,9 @@ import { NestFactory } from '@nestjs/core';
 import type { HelmetOptions } from 'helmet';
 import helmet from 'helmet';
 
-import { AppModule } from './apps/mainApp/app.module';
-import winstonLogger from './apps/mainApp/modules/utils/winston/logger';
+import { MainAppModule } from './apps/mainApp/main-app.module';
 import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters';
+import winstonLogger from './modules/utils/winston/logger';
 
 async function bootstrap() {
   winstonLogger.debug?.(
@@ -15,7 +15,7 @@ async function bootstrap() {
   );
 
   try {
-    const app = await NestFactory.create(AppModule, {
+    const app = await NestFactory.create(MainAppModule, {
       logger: winstonLogger,
     });
 
