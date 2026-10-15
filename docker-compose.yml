@@ -17,19 +17,6 @@ services:
     volumes:
       - redis_data:/data
 
-  # S3-compatible artifact storage. Provided by LocalStack (community edition,
-  # older tag that still runs without a paid auth token) instead of MinIO.
-  minio:
-    image: localstack/localstack:3.8.0
-    ports:
-      - "4566:4566"
-    environment:
-      SERVICES: s3
-      DEBUG: 0
-    volumes:
-      - minio_data:/var/lib/localstack
-
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
