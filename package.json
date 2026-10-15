@@ -2,13 +2,31 @@
   "name": "e2e-hybrid-executor",
   "private": true,
   "workspaces": [
-    "apps/api",
-    "apps/web"
+    "apps/*",
+    "services/*",
+    "packages/*"
   ],
   "scripts": {
-    "dev:api": "npm run start:dev --workspace=apps/api",
-    "dev:web": "npm run dev --workspace=apps/web",
-    "build:api": "npm run build --workspace=apps/api",
-    "build:web": "npm run build --workspace=apps/web"
+    "dev:api": "pnpm --filter gateway-api run start:dev",
+    "dev:web": "pnpm --filter web run dev",
+    "build:api": "pnpm --filter gateway-api run build",
+    "build:web": "pnpm --filter web run build",
+    "dev:lint": "pnpm -r --if-present run lint",
+    "lint:fix": "pnpm -r --if-present run lint:fix",
+    "format": "pnpm -r --if-present run format",
+    "format:check": "pnpm -r --if-present run format:check",
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.8"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.20.0",
+      "onFail": "download"
+    }
   }
 }

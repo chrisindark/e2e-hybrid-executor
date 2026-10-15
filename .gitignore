@@ -10,12 +10,24 @@ dist/
 coverage/
 out/
 *.tsbuildinfo
+.turbo/
+.pnpm-store/
+
+# tsc emitted in place next to sources (accidental outDir-less builds)
+*.js.map
+*.d.ts.map
+apps/gateway-api/src/**/*.js
+apps/gateway-api/src/**/*.d.ts
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+services/*/src/**/*.js
+services/*/src/**/*.d.ts
 
 # Local environment files and secrets
 .env
 .env.*
 !.env.example
-!.env.local.example
+!.env.development.example
 
 # Local databases and runtime files
 *.sqlite

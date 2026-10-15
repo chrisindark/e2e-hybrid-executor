@@ -1,0 +1,50 @@
+import { randomUUID } from 'crypto';
+import * as moment from 'moment';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+
+export enum RunStatus {
+  QUEUED = 'queued',
+  PENDING = 'pending',
+  RUNNING = 'running',
+  PASSED = 'passed',
+  FAILED = 'failed',
+  RECOVERED = 'recovered',
+}
+
+@Entity('runs')
+export class Run {
+  @PrimaryColumn('uuid')
+  runId: string = randomUUID();
+
+  @Column('uuid')
+  testId: string = '';
+
+  @Column('uuid', { nullable: true })
+  versionId?: string;
+
+  @Column()
+  startedAt: Date = moment.utc().toDate();
+
+  @Column({ nullable: true })
+  finishedAt?: Date;
+
+  @Column('text', { nullable: true })
+  error?: string;
+
+  @Column({
+    type: 'text',
+  })
+  overallStatus: RunStatus = RunStatus.PENDING;
+
+  @CreateDateColumn()
+  createdAt: Date = moment.utc().toDate();
+
+  @UpdateDateColumn()
+  updatedAt: Date = moment.utc().toDate();
+}
