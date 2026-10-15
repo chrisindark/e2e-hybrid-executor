@@ -5,8 +5,10 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { DatabaseModule } from 'src/database/database.module';
+import { TenantRepositoriesModule } from 'src/database/tenant-repositories.module';
+import { TenantScopeInterceptor } from 'src/database/tenant-scope.interceptor';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 
 import { TenantContextMiddleware } from '../../common/middleware/tenant-context.middleware';
@@ -43,6 +45,7 @@ import { UtilsModule } from './modules/utils/utils.module';
     PingModule,
     AuthModule,
     DatabaseModule,
+    TenantRepositoriesModule,
     IntentModule,
     GenerationModule,
     RunModule,
@@ -53,7 +56,10 @@ import { UtilsModule } from './modules/utils/utils.module';
     AgenticExecutionModule,
     PromotionCandidateModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_INTERCEPTOR, useClass: TenantScopeInterceptor },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

@@ -1,4 +1,12 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+
 import { ExecutionMode } from '../../../../shared/trace-event.entity';
 
 export class OpenAIDto {

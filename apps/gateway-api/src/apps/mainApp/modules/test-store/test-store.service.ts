@@ -61,10 +61,15 @@ export class TestStoreService {
       await manager.insert(TestDefinition, definition);
       await manager.insert(TestStep, steps);
       const version = await this.createVersion(manager, definition, steps);
-      await manager.update(TestDefinition, { testId: definition.testId }, {
-        currentVersionId: version.versionId,
-      });
+      await manager.update(
+        TestDefinition,
+        { testId: definition.testId },
+        {
+          currentVersionId: version.versionId,
+        },
+      );
     });
+
     return this.get(definition.testId);
   }
 
@@ -74,10 +79,16 @@ export class TestStoreService {
     replacementSteps?: Partial<TestStep>[],
   ) {
     const current = await this.get(testId);
-    if (!current.testDefinition) throw new NotFoundException(`Test ${testId} not found`);
-    const definition = { ...current.testDefinition, ...definitionPatch, updatedAt: new Date() };
+
+    if (!current.testDefinition)
+      throw new NotFoundException(`Test ${testId} not found`);
+    const definition = {
+      ...current.testDefinition,
+      ...definitionPatch,
+      updatedAt: new Date(),
+    };
     const steps = replacementSteps
-      ? replacementSteps as TestStep[]
+      ? (replacementSteps as TestStep[])
       : current.testSteps;
     await this.testDefinitionRepository.manager.transaction(async (manager) => {
       if (replacementSteps) await manager.insert(TestStep, replacementSteps);
@@ -87,11 +98,16 @@ export class TestStoreService {
         steps,
         current.testDefinition?.currentVersionId,
       );
-      await manager.update(TestDefinition, { testId }, {
-        ...definitionPatch,
-        currentVersionId: version.versionId,
-      });
+      await manager.update(
+        TestDefinition,
+        { testId },
+        {
+          ...definitionPatch,
+          currentVersionId: version.versionId,
+        },
+      );
     });
+
     return this.get(testId);
   }
 
@@ -101,10 +117,12 @@ export class TestStoreService {
     });
     let testSteps = await this.testStepRepository.findBy({ testId });
     let snapshotDefinition = testDefinition;
+
     if (testDefinition?.currentVersionId) {
       const version = await this.testVersionRepository.findOneBy({
         versionId: testDefinition.currentVersionId,
       });
+
       if (version) {
         snapshotDefinition = {
           ...testDefinition,
@@ -123,10 +141,17 @@ export class TestStoreService {
 
   async list() {
     const testDefinitions = await this.testDefinitionRepository.find();
-    return Promise.all(testDefinitions.map(async (definition) => {
-      const snapshot = await this.get(definition.testId);
-      return { ...snapshot.testDefinition, steps: snapshot.testSteps } as TestStore;
-    }));
+
+    return Promise.all(
+      testDefinitions.map(async (definition) => {
+        const snapshot = await this.get(definition.testId);
+
+        return {
+          ...snapshot.testDefinition,
+          steps: snapshot.testSteps,
+        } as TestStore;
+      }),
+    );
   }
 
   async getTestDefinition(testId: string) {
@@ -137,13 +162,18 @@ export class TestStoreService {
 
   async getTestStep(stepId: string) {
     const legacyStep = await this.testStepRepository.findOneBy({ stepId });
+
     if (legacyStep) return legacyStep;
     const definitions = await this.testDefinitionRepository.find();
     for (const definition of definitions) {
       const snapshot = await this.get(definition.testId);
-      const step = snapshot.testSteps.find((candidate) => candidate.stepId === stepId);
+      const step = snapshot.testSteps.find(
+        (candidate) => candidate.stepId === stepId,
+      );
+
       if (step) return step;
     }
+
     return null;
   }
 
@@ -153,14 +183,21 @@ export class TestStoreService {
 
   async replaceProposedStep(stepId: string, proposedStep: TestStep) {
     const original = await this.getTestStep(stepId);
+
     if (!original) throw new NotFoundException(`Test Step ${stepId} not found`);
+
     return this.promoteProposedStep(original.testId, stepId, proposedStep);
   }
 
   async getVersion(versionId: string) {
     const version = await this.testVersionRepository.findOneBy({ versionId });
-    if (!version) throw new NotFoundException(`Test version ${versionId} not found`);
-    const metadata = await this.testDefinitionRepository.findOneBy({ testId: version.testId });
+
+    if (!version)
+      throw new NotFoundException(`Test version ${versionId} not found`);
+    const metadata = await this.testDefinitionRepository.findOneBy({
+      testId: version.testId,
+    });
+
     return {
       version,
       testDefinition: {
@@ -179,27 +216,42 @@ export class TestStoreService {
     basedVersionId?: string,
   ) {
     const current = await this.get(testId);
-    if (!current.testDefinition) throw new NotFoundException(`Test ${testId} not found`);
-    if (basedVersionId && current.testDefinition.currentVersionId !== basedVersionId) {
+
+    if (!current.testDefinition)
+      throw new NotFoundException(`Test ${testId} not found`);
+
+    if (
+      basedVersionId &&
+      current.testDefinition.currentVersionId !== basedVersionId
+    ) {
       throw new Error('Promotion is based on an outdated test version');
     }
-    const steps = current.testSteps.map((step) => step.stepId === stepId
-      ? { ...proposedStep, stepId, testId }
-      : step);
+    const steps = current.testSteps.map((step) =>
+      step.stepId === stepId ? { ...proposedStep, stepId, testId } : step,
+    );
+
     if (!steps.some((step) => step.stepId === stepId)) {
       throw new NotFoundException(`Test Step ${stepId} not found`);
     }
     const definition = current.testDefinition;
-    const version = await this.testDefinitionRepository.manager.transaction(async (manager) => {
-      const created = await this.createVersion(
-        manager,
-        definition,
-        steps,
-        definition.currentVersionId,
-      );
-      await manager.update(TestDefinition, { testId }, { currentVersionId: created.versionId });
-      return created;
-    });
+    const version = await this.testDefinitionRepository.manager.transaction(
+      async (manager) => {
+        const created = await this.createVersion(
+          manager,
+          definition,
+          steps,
+          definition.currentVersionId,
+        );
+        await manager.update(
+          TestDefinition,
+          { testId },
+          { currentVersionId: created.versionId },
+        );
+
+        return created;
+      },
+    );
+
     return version;
   }
 
@@ -224,6 +276,7 @@ export class TestStoreService {
       stepsSnapshot: JSON.stringify(steps),
       parentVersionId,
     });
+
     return manager.save(TestVersion, version);
   }
 }

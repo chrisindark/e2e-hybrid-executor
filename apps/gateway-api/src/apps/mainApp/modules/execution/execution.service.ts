@@ -1,5 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 
+import { currentTenantId } from '../../../../database/tenant-context';
+import { TenantTransactionService } from '../../../../database/tenant-transaction.service';
 import { TestRunService } from '../test-run/test-run.service';
 import { GeminiService } from '../utils/gemini/gemini.service';
 import { OpenAIService } from '../utils/open-ai/open-ai.service';
@@ -13,6 +19,7 @@ export class ExecutionService {
     private readonly testRunService: TestRunService,
     private readonly openAIService: OpenAIService,
     private readonly geminiService: GeminiService,
+    private readonly tenantTransactions: TenantTransactionService,
   ) {}
 
   async list() {
@@ -24,13 +31,43 @@ export class ExecutionService {
   }
 
   async runTest(testId: string, options: RunOptions = {}) {
+    const tenantId = currentTenantId();
+
+    if (!tenantId) {
+      throw new InternalServerErrorException(
+        'No tenant in scope; cannot start a run',
+      );
+    }
+
     const runId = await this.testRunService.createQueuedRun(testId);
-    void this.testRunService.runTest(testId, options, runId).catch(async (error: Error) => {
-      this.logger.error(`Run ${runId} failed in background: ${error.stack ?? error.message}`);
-      await this.testRunService.failQueuedRun(runId, error.stack ?? error.message);
-    }).catch((error: Error) => {
-      this.logger.error(`Could not persist failure for run ${runId}: ${error.stack ?? error.message}`);
-    });
+
+    // The run outlives the HTTP request, so it takes its own tenant-scoped
+    // connection instead of borrowing the request's.
+    void this.tenantTransactions
+      .runWithTenant(tenantId, () =>
+        this.testRunService.runTest(testId, options, runId),
+      )
+      .catch(async (error: Error) => {
+        this.logger.error(
+          `Run ${runId} failed in background: ${error.stack ?? error.message}`,
+        );
+
+        await this.tenantTransactions
+          .runWithTenant(tenantId, () =>
+            this.testRunService.failQueuedRun(
+              runId,
+              error.stack ?? error.message,
+            ),
+          )
+          .catch((persistError: Error) => {
+            this.logger.error(
+              `Could not persist failure for run ${runId}: ${
+                persistError.stack ?? persistError.message
+              }`,
+            );
+          });
+      });
+
     return { runId, status: 'QUEUED' };
   }
 

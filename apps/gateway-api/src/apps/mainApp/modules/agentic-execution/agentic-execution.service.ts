@@ -3,8 +3,8 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import type { Page } from 'playwright';
 import { expect } from '@playwright/test';
+import type { Page } from 'playwright';
 import { ZodObject } from 'zod';
 
 import {
@@ -23,7 +23,8 @@ export interface RecoveryResult {
   newStep: TestStep;
   reasoning: string;
   actionTaken: string;
-  validationStatus?: 'PASSED' | 'RECOVERY_VALIDATION_FAILED' | 'EXECUTION_FAILED';
+  validationStatus?:
+    'PASSED' | 'RECOVERY_VALIDATION_FAILED' | 'EXECUTION_FAILED';
 }
 
 export interface DecisionResult {
@@ -183,7 +184,8 @@ export class AgenticExecutionService {
     };
 
     let success = true;
-    let validationStatus: 'PASSED' | 'RECOVERY_VALIDATION_FAILED' | 'EXECUTION_FAILED' = 'PASSED';
+    let validationStatus:
+      'PASSED' | 'RECOVERY_VALIDATION_FAILED' | 'EXECUTION_FAILED' = 'PASSED';
     let actionTaken = `${decision.action} on "${decision.selector} with value ${decision.value}"`;
     try {
       if (decision.action === 'click') {
@@ -200,6 +202,7 @@ export class AgenticExecutionService {
         });
         // Stage 2: candidate must report as visible (strict post-condition).
         const isVisible = await page.locator(decision.selector).isVisible();
+
         if (!isVisible) {
           validationStatus = 'RECOVERY_VALIDATION_FAILED';
           throw new Error(
@@ -208,8 +211,11 @@ export class AgenticExecutionService {
         }
       } else if (decision.action === 'assertText') {
         const expectedText = failedStep.expectedOutcome || failedStep.value;
+
         if (!expectedText?.trim()) {
-          throw new Error(`Assertion step ${failedStep.stepId} has no expected text defined.`);
+          throw new Error(
+            `Assertion step ${failedStep.stepId} has no expected text defined.`,
+          );
         }
         // Stage 1: candidate must be present and visible.
         await page.waitForSelector(decision.selector, {
@@ -220,9 +226,12 @@ export class AgenticExecutionService {
         // post-condition). A candidate that exists but does not contain
         // the expected text is treated as a failed recovery.
         try {
-          await expect(page.locator(decision.selector)).toContainText(expectedText, {
-            timeout: 5000,
-          });
+          await expect(page.locator(decision.selector)).toContainText(
+            expectedText,
+            {
+              timeout: 5000,
+            },
+          );
         } catch (error) {
           validationStatus = 'RECOVERY_VALIDATION_FAILED';
           throw new Error(
@@ -232,10 +241,15 @@ export class AgenticExecutionService {
       }
     } catch (err) {
       const failureReason = (err as Error).message;
-      if (decision.action === 'assertText' || decision.action === 'assertVisible') {
-        validationStatus = validationStatus === 'PASSED'
-          ? 'RECOVERY_VALIDATION_FAILED'
-          : validationStatus;
+
+      if (
+        decision.action === 'assertText' ||
+        decision.action === 'assertVisible'
+      ) {
+        validationStatus =
+          validationStatus === 'PASSED'
+            ? 'RECOVERY_VALIDATION_FAILED'
+            : validationStatus;
       } else {
         validationStatus = 'EXECUTION_FAILED';
       }
@@ -272,34 +286,60 @@ export class AgenticExecutionService {
    */
   private async getInteractiveElementsSnapshot(page: Page) {
     return page.evaluate(() => {
-      const els = Array.from(document.querySelectorAll(
-        'button, a[href], input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [tabindex]:not([tabindex="-1"])',
-      )).filter((el) => {
-        const style = window.getComputedStyle(el);
-        const rect = el.getBoundingClientRect();
-        return el.getClientRects().length > 0 && style.display !== 'none' &&
-          style.visibility !== 'hidden' && Number(style.opacity) !== 0 &&
-          rect.width > 0 && rect.height > 0;
-      }).sort((left, right) => {
-        const leftRect = left.getBoundingClientRect();
-        const rightRect = right.getBoundingClientRect();
-        const leftInView = leftRect.bottom > 0 && leftRect.right > 0 && leftRect.top < innerHeight && leftRect.left < innerWidth;
-        const rightInView = rightRect.bottom > 0 && rightRect.right > 0 && rightRect.top < innerHeight && rightRect.left < innerWidth;
-        return Number(rightInView) - Number(leftInView);
-      }).slice(0, 80);
+      const els = Array.from(
+        document.querySelectorAll(
+          'button, a[href], input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [tabindex]:not([tabindex="-1"])',
+        ),
+      )
+        .filter((el) => {
+          const style = window.getComputedStyle(el);
+          const rect = el.getBoundingClientRect();
+
+          return (
+            el.getClientRects().length > 0 &&
+            style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            Number(style.opacity) !== 0 &&
+            rect.width > 0 &&
+            rect.height > 0
+          );
+        })
+        .sort((left, right) => {
+          const leftRect = left.getBoundingClientRect();
+          const rightRect = right.getBoundingClientRect();
+          const leftInView =
+            leftRect.bottom > 0 &&
+            leftRect.right > 0 &&
+            leftRect.top < innerHeight &&
+            leftRect.left < innerWidth;
+          const rightInView =
+            rightRect.bottom > 0 &&
+            rightRect.right > 0 &&
+            rightRect.top < innerHeight &&
+            rightRect.left < innerWidth;
+
+          return Number(rightInView) - Number(leftInView);
+        })
+        .slice(0, 80);
 
       return els.map((el) => {
-        const labelledBy = el.getAttribute('aria-labelledby')
+        const labelledBy = el
+          .getAttribute('aria-labelledby')
           ?.split(/\s+/)
           .map((id) => document.getElementById(id)?.textContent?.trim())
           .filter(Boolean)
           .join(' ');
+
         return {
           tag: el.tagName.toLowerCase(),
           role: el.getAttribute('role'),
-          name: el.getAttribute('aria-label') || labelledBy ||
-            el.closest('label')?.textContent?.trim() || el.getAttribute('placeholder') ||
-            el.textContent?.trim().slice(0, 80) || null,
+          name:
+            el.getAttribute('aria-label') ||
+            labelledBy ||
+            el.closest('label')?.textContent?.trim() ||
+            el.getAttribute('placeholder') ||
+            el.textContent?.trim().slice(0, 80) ||
+            null,
           testId: el.getAttribute('data-testid') || el.getAttribute('data-cy'),
           selectorHint: el.getAttribute('data-testid')
             ? `[data-testid="${el.getAttribute('data-testid')}"]`
@@ -308,7 +348,17 @@ export class AgenticExecutionService {
               : `${el.tagName.toLowerCase()}${el.getAttribute('role') ? `[role="${el.getAttribute('role')}"]` : ''}`,
           attributes: Object.fromEntries(
             Array.from(el.attributes)
-              .filter((attribute) => ['aria-label', 'aria-labelledby', 'name', 'type', 'placeholder', 'href', 'role'].includes(attribute.name))
+              .filter((attribute) =>
+                [
+                  'aria-label',
+                  'aria-labelledby',
+                  'name',
+                  'type',
+                  'placeholder',
+                  'href',
+                  'role',
+                ].includes(attribute.name),
+              )
               .map((attribute) => [attribute.name, attribute.value]),
           ),
           id: el.id || undefined,
@@ -468,10 +518,13 @@ ${JSON.stringify(domSnapshot, null, 2)}
           if (!decision.value?.trim()) {
             throw new Error('assertText action has no expected text defined.');
           }
-          await page.locator(decision.selector).filter({ hasText: decision.value }).waitFor({
-            state: 'visible',
-            timeout: 5000,
-          });
+          await page
+            .locator(decision.selector)
+            .filter({ hasText: decision.value })
+            .waitFor({
+              state: 'visible',
+              timeout: 5000,
+            });
         }
       } catch (err) {
         status = StepStatus.FAILED;

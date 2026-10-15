@@ -87,13 +87,16 @@ export class GenerationService {
       ? this.createDefinitionPatch(dto.testDefinition!)
       : {};
     let replacementSteps: Partial<TestStep>[] | undefined;
+
     if (hasSteps) {
       replacementSteps = this.createSteps(testId, dto.steps ?? []);
     } else if (hasStep) {
       const currentStep = testStore.testSteps.find(
         (candidate) => candidate.stepId === dto.step!.stepId,
       );
-      if (!currentStep) throw new NotFoundException(`Test Step ${dto.step!.stepId} not found`);
+
+      if (!currentStep)
+        throw new NotFoundException(`Test Step ${dto.step!.stepId} not found`);
       const updatedStep = { ...currentStep, ...dto.step };
       this.validateStep(updatedStep);
       replacementSteps = testStore.testSteps.map((candidate) =>

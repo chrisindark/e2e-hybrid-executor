@@ -8,6 +8,10 @@ export class TestVersion {
   @PrimaryColumn('uuid')
   versionId: string = randomUUID();
 
+  /** Set by the database from the session tenant; never provided by callers. */
+  @Column({ type: 'uuid', insert: false, update: false })
+  tenantId?: string;
+
   @Column('uuid')
   testId: string = '';
 
