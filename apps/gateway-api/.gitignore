@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build and test output
+dist/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.turbo/
+
+# tsc emitted in place next to sources (accidental outDir-less builds)
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
+
+# Local databases and runtime files
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.log
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and operating-system files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+
+# Playwright artifacts
+test-results/
+playwright-report/
+blob-report/

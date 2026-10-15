@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.next/
+coverage/
+*.sqlite
+*.db
+pnpm-lock.yaml
+apps/gateway-api/dist/
+apps/web/.next/

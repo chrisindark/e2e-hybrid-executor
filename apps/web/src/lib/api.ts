@@ -1,4 +1,42 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? 'tenant-demo';
+const ACTOR_ID = process.env.NEXT_PUBLIC_ACTOR_ID ?? 'demo-user';
+
+/** Cached bootstrap token so we only hit /v1/auth/token when needed. */
+let cachedToken: { value: string; expiresAt: number } | null = null;
+
+async function fetchToken(): Promise<string> {
+  const res = await fetch(`${API_BASE}/v1/auth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tenantId: TENANT_ID, actorId: ACTOR_ID }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Auth error ${res.status}: ${await res.text()}`);
+  }
+
+  const data = (await res.json()) as {
+    accessToken: string;
+    expiresIn: number;
+  };
+
+  // Refresh 30s early to avoid racing the server-side expiry check.
+  cachedToken = {
+    value: data.accessToken,
+    expiresAt: Date.now() + Math.max(0, data.expiresIn - 30) * 1000,
+  };
+
+  return data.accessToken;
+}
+
+async function getToken(): Promise<string> {
+  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+    return cachedToken.value;
+  }
+
+  return fetchToken();
+}
 
 export interface TestStep {
   stepId: string;
@@ -91,8 +129,12 @@ export interface PromotionCandidate {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = await getToken();
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
     ...options,
   });
   if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
@@ -125,7 +167,9 @@ export const api = {
   },
 
   getTest: async (testId: string) => {
-    const response = await request<TestStoreResponse>(`/v1/generation/${testId}`);
+    const response = await request<TestStoreResponse>(
+      `/v1/generation/${testId}`,
+    );
 
     return {
       ...response.testDefinition,
@@ -154,13 +198,20 @@ export const api = {
     };
   },
 
-  listPromotionCandidates: () => request<PromotionCandidate[]>('/v1/promotion-candidates'),
+  listPromotionCandidates: () =>
+    request<PromotionCandidate[]>('/v1/promotion-candidates'),
 
-  getPromotionCandidate: (promotionCandidateId: string) => request<PromotionCandidate>(`/v1/promotion-candidates/${promotionCandidateId}`),
+  getPromotionCandidate: (promotionCandidateId: string) =>
+    request<PromotionCandidate>(
+      `/v1/promotion-candidates/${promotionCandidateId}`,
+    ),
 
   decidePromotionCandidate: (promotionCandidateId: string, approve: boolean) =>
-    request<PromotionCandidate>(`/v1/promotion-candidates/${promotionCandidateId}/decide`, {
-      method: 'POST',
-      body: JSON.stringify({ approve }),
-    }),
+    request<PromotionCandidate>(
+      `/v1/promotion-candidates/${promotionCandidateId}/decide`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ approve }),
+      },
+    ),
 };

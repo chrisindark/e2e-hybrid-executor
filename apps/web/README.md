@@ -17,12 +17,12 @@ From the web app directory (`apps/web`):
 
 ```bash
 pnpm install
-cp .env.local.example .env.local
+cp .env.example .env.development
 pnpm dev
 ```
 
 Open `http://localhost:3000`. The API defaults to
-`http://localhost:3001`; change `NEXT_PUBLIC_API_URL` in `.env.local` when the
+`http://localhost:8000`; change `NEXT_PUBLIC_API_URL` in `.env.development` when the
 API is hosted elsewhere.
 
 ## Commands
