@@ -55,10 +55,16 @@ services/           runner-e2e (Playwright), runner-api (HTTP), ai-service, sche
 packages/           contracts, db, queue, telemetry, types (step-engine/ui-kit planned)
 ```
 
-Inside `apps/gateway-api/src`: `apps/mainApp/modules/<feature>` per feature
-(`intent`, `execution`, `agentic-execution`, `trace-event`, `promotion-candidate`,
-`e2e-tests`, `test-store`, `test-run`, `run`, `auth`, `health`), with shared code
-in `common/`, `guards/`, `config/`, `database/`, `shared/`.
+Inside `apps/gateway-api/src`, the split is transport boundary vs domain:
+`modules/<feature>` holds transport-agnostic business logic (services + NestJS
+modules, **no controllers, no HTTP DTOs**) for `intent`, `execution`,
+`agentic-execution`, `trace-event`, `promotion-candidate`, `e2e-tests`,
+`test-store`, `test-run`, `run`, `auth`, `health`, plus shared helpers under
+`modules/utils`. HTTP wiring lives in `apps/mainApp` (`main-app.module.ts`,
+`controllers/*`, `dto/*`); guards, filters, config, database and shared entities
+live in `guards/`, `common/`, `config/`, `database/`, `shared/`. Request-scoped
+context (`RequestContext`) is owned by `@repo/telemetry`; there is no
+gateway-local AsyncLocalStorage.
 
 ## Architecture boundaries (non-negotiable)
 
@@ -66,6 +72,10 @@ in `common/`, `guards/`, `config/`, `database/`, `shared/`.
    through `packages/contracts`.
 2. Workers never serve HTTP traffic — jobs in via Redis, events out via Redis Streams.
 3. Only `apps/gateway-api` and `packages/db` run DDL migrations.
+4. The dependency direction is HTTP → domain only. `src/modules/**` must not
+   import the HTTP entry point (`src/apps/mainApp/**`, its controllers or DTOs);
+   request shapes cross the seam as transport-agnostic input types. Enforced by
+   a `no-restricted-imports` rule in `apps/gateway-api/eslint.config.mjs`.
 
 ## Commands
 

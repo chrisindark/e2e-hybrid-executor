@@ -11,7 +11,6 @@ import { RequestContext } from '@repo/telemetry';
 import { ActorType, PlanTier } from '@repo/types';
 import type { Request } from 'express';
 
-import { asyncLocalStorage } from '../apps/mainApp/modules/utils/async-local-storage/async-local-storage.provider';
 import { JwtClaims, verifyJwt } from '../common/auth/jwt.util';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
@@ -66,22 +65,17 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   /**
-   * Publishes the verified claims to both async-context stores: the gateway's
-   * own ALS (used by logging and error responses) and the telemetry
-   * `RequestContext` (used by queue envelopes and downstream services). The
-   * telemetry store is established by `TenantContextMiddleware` for every
-   * request; a guard cannot create it, only populate it.
+   * Publishes the verified claims to the request-scoped `RequestContext`
+   * (from `@repo/telemetry`). The context is established by
+   * `CorrelationIdMiddleware` for every request; a guard cannot create it,
+   * only populate it.
    */
   private applyTenantContext(claims: JwtClaims): void {
-    const requestContext = asyncLocalStorage.getStore();
-
-    if (requestContext) requestContext.tenantId = claims.tenantId;
-
     const tenantContext = RequestContext.getOptional();
 
     if (!tenantContext) {
       this.logger.warn(
-        'TenantContextMiddleware did not establish a RequestContext; skipping telemetry tenant context',
+        'RequestContext was not established for this request; skipping tenant context',
         JwtAuthGuard.name,
       );
 

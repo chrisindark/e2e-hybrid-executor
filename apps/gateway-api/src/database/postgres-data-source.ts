@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { config } from 'dotenv';
 import { DataSource } from 'typeorm';
 
-import { getEnvFilePath } from '../apps/mainApp/modules/utils/utils.helper';
+import { getEnvFilePath } from '../modules/utils/utils.helper';
 import { getTypeOrmOptions } from './postgres.options';
 
 // The migration CLI runs from packages/db, so resolve the env file against the

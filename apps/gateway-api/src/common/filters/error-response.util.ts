@@ -1,6 +1,6 @@
+import { RequestContext } from '@repo/telemetry';
 import type { Request, Response } from 'express';
 
-import { asyncLocalStorage } from '../../apps/mainApp/modules/utils/async-local-storage/async-local-storage.provider';
 import {
   CORRELATION_ID_HEADER,
   REQUEST_ID_HEADER,
@@ -22,10 +22,10 @@ export function resolveCorrelationId(
   request: Request,
   response: Response,
 ): string {
-  const store = asyncLocalStorage.getStore();
+  const context = RequestContext.getOptional();
 
-  if (store?.correlationId !== undefined) {
-    return store.correlationId;
+  if (context?.correlationId !== undefined) {
+    return context.correlationId;
   }
 
   const headerValue =
