@@ -23,7 +23,7 @@ import type {
   TraceEvent,
 } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 const TENANT_ID = process.env.NEXT_PUBLIC_TENANT_ID ?? 'tenant-demo';
 const ACTOR_ID = process.env.NEXT_PUBLIC_ACTOR_ID ?? 'demo-user';
 
