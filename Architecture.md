@@ -1,32 +1,154 @@
-# Architecture — Hybrid Test Execution
+# Architecture
 
-Two application packages in one pnpm workspace. The API is one NestJS process;
-there is no queue, worker, container, or SSE stream.
+Canonical architecture doc for `e2e-hybrid-executor`. The repo is
+**mid-migration**: the current state (single NestJS process) and the target
+state (four deployables) both appear below; [Plans.md](Plans.md) is the authority
+on the intended end state and [ROADMAP.md](ROADMAP.md) tracks the gap.
 
-```mermaid
-flowchart LR
-  User((User)) -->|types test intent| FE[Next.js dashboard<br/>Intent · Runs · Trace · Promotion]
+The old version of this file described only the v0 loop; it was rewritten when
+tenancy went live. v0 history lives in git.
 
-  subgraph Backend[NestJS API — one process]
-    API[Versioned REST API<br/>/v1]
-    ENGINE[Execution Engine<br/>Playwright]
-    DB[(SQLite via TypeORM<br/>tests · steps · runs · trace · candidates)]
-  end
+## Current topology (what runs today)
 
-  FE <-->|REST| API
-  API <--> ENGINE
-  API <--> DB
-
-  ENGINE -->|drives the browser| APP[Target app<br/>default: Sauce Demo]
-  ENGINE <-->|DOM snapshot + failure → JSON proposal| GEMINI[Gemini<br/>recovery only,<br/>never touches the browser]
-  API -->|intent → steps| GROQ[Groq<br/>OpenAI-compatible API]
+```
+Next.js :3000  ──REST poll──▶  NestJS gateway-api :3001
+                                 │  one process, modular monolith
+                                 │  TypeORM + Postgres (RLS-enforced tenancy)
+                                 └─ runs execute on an unawaited in-process promise
+                                    (no queue; the process holds the work)
 ```
 
-**The loop:** The user submits intent and a target URL. The API asks the
-OpenAI-compatible Groq endpoint for ordered steps and stores them in SQLite.
-Playwright runs the saved steps in a browser page. When a step is deliberately
-broken or fails, the engine sends the current interactive DOM snapshot and
-failure context to Gemini. Gemini returns a structured recovery action; the
-engine validates and executes it on the same page. A recovered step becomes a
-promotion candidate. Human approval updates the stored step in SQLite so later
-runs can use it deterministically.
+- **`apps/gateway-api`** — NestJS 11, URI-versioned REST under `/v1`. Auth is a
+  global `JwtAuthGuard` (opt out with `@Public()`). DDL migrations run from
+  `packages/db`; runtime connects to Postgres as a **non-superuser** so RLS is
+  enforced.
+- **`apps/web`** — Next.js 14 dashboard: intent capture, saved tests, run
+  console with trace events, promotion review. Polls REST; there is no SSE.
+- **Postgres 16** is the only real datastore (a stray `database.sqlite` may
+  linger locally; nothing reads it). **Redis 7** is reachable via
+  `docker-compose.yml` but no queue is wired to it yet.
+- **`services/`** is untracked scaffolding for the target workers
+  (`runner-e2e`, `runner-api`, `ai-service`, `scheduler`) and is largely empty.
+  `packages/contracts`, `@repo/db`, `@repo/queue` (envelope), and
+  `@repo/telemetry` hold real code.
+
+## Domain layout inside `apps/gateway-api`
+
+```
+src/
+  apps/mainApp/          HTTP transport: main-app.module.ts, controllers/, dto/
+  modules/<feature>/     Transport-agnostic domain logic (services + modules,
+                         NO controllers, NO HTTP DTOs) for intent, execution,
+                         agentic-execution, trace-event, promotion-candidate,
+                         e2e-tests, test-store, test-run, run, auth, health
+  guards/ common/ config/ database/ shared/   cross-cutting pieces
+```
+
+- The dependency direction is **HTTP → domain only**: `src/modules/**` must not
+  import `apps/mainApp/**` (its controllers or DTOs); request shapes cross the
+  seam as transport-agnostic input types. Enforced by a `no-restricted-imports`
+  rule in `apps/gateway-api/eslint.config.mjs`.
+- Request-scoped context (`RequestContext`: correlationId, tenantId, actorId) is
+  owned by `@repo/telemetry`; there is no gateway-local AsyncLocalStorage.
+- Entities live in `src/shared/`: `tenant`, `test-definition`, `test-step`,
+  `test-version`, `run`, `test-step-attempt`, `trace-event`,
+  `promotion-candidate` — every business table carries `tenantId`.
+
+## Tenancy: Postgres RLS, not app-level WHERE clauses
+
+Multi-tenancy is enforced by the database engine:
+
+- Migrations `1792066610064-tenant-isolation-rls` (tables, policies,
+  `current_tenant_id()`) and `1792069042212-tenant-roles-and-defaults` (roles,
+  `current_tenant_id()` default on every `tenantId`) are applied.
+- `TenantScopeInterceptor` is the **only** writer of the RLSS GUC
+  `app.tenant_id`: a session-scoped `set_config(..., false)` on a dedicated
+  `QueryRunner`, cleared before release (not `SET LOCAL`, because the queued run
+  is fire-and-forget and outlives the request). `runWithTenant` gives that run
+  its own scoped connection.
+- `tenantId` columns are `uuid` with `insert: false, update: false` — the app
+  never writes the tenant; the DB default fills it. Inserting outside tenant
+  scope fails closed (SQLSTATE 42501).
+- Isolated repositories come from `TenantRepositoriesModule` (a global module
+  wrapping each `@InjectRepository` with the ALS-bound manager). Feature
+  modules must not use `TypeOrmModule.forFeature` directly.
+- Two connection strings: `DATABASE_URL` is the owning role used for
+  migrations/DDL, `DATABASE_APP_URL` is `app_runtime`, a non-superuser LOGIN
+  runtime traffic uses so RLS actually applies. Runtime must never be a
+  superuser (`FORCE ROW LEVEL SECURITY` does not apply to superusers);
+  `PostgresService` warns at boot if it is.
+
+Details and invariants: [docs/tenant-isolation.md](docs/tenant-isolation.md),
+[SECURITY.md](SECURITY.md).
+
+## The pipeline seam
+
+The AI pipeline and the deterministic pipeline share **contracts and nothing
+else** (from [Plans.md](Plans.md)):
+
+| Contract           | Owner                | Direction                                                       |
+| ------------------ | -------------------- | --------------------------------------------------------------- |
+| TestSpec v1 (zod)  | `packages/contracts` | AI pipeline produces; deterministic pipeline consumes           |
+| RunJob / RunEvent  | `packages/contracts` | Deterministic pipeline produces; UI/AI consume                  |
+| RecoveryPort       | `packages/contracts` | Runner calls; AI service implements                             |
+| PromotionCandidate | `packages/contracts` | AI pipeline produces; human approval creates a new test version |
+
+TestSpec v1 **contract** step types: `ui.goto`, `ui.click`, `ui.fill`,
+`ui.assertText`, `ui.assertVisible`, `api.request` (with `extract` variable
+rules and `assertions`). Contract locators carry a primary + ranked alternates
+
+- semantic `intent`.
+
+**Runtime gap:** the gateway does not import `@repo/contracts` yet. Executed
+steps are the legacy `TestStep` shape in `src/shared/types.ts` — `TestAction`
+(`goto`/`click`/`fill`/`assertText`/`assertVisible`) plus a single CSS
+`selector`. `api.request`, `alternates`, `intent`, `schemaVersion`, and
+`targetBaseUrl` exist only in the contract today. Closing this gap is A0's
+remaining work ([ROADMAP.md](ROADMAP.md)).
+
+## The v0 → v1 test lifecycle
+
+1. `POST /v1/intent` — LLM (Groq for parsing, Gemini for agentic recovery)
+   converts plain-English intent + target URL into a structured spec.
+2. `v1/generation` CRUD — saved tests. Versioning appends an immutable
+   `TestVersion`; runs pin a version. Promotion never mutates `test_steps`.
+3. `POST /v1/execution/:testId/run` returns `202 { runId, status: 'QUEUED' }`
+   immediately; the browser run is never awaited in the request.
+4. Steps execute (Playwright deterministically first; `api.request` over HTTP)
+   and emit `trace-event` rows. Assertions resolve text from
+   `expectedOutcome ?? value`, never a bare `value`.
+5. On selector drift with recovery enabled: a candidate is proposed only if it
+   passes **two** stages — presence **and** a real `toContainText`/visibility
+   post-condition; failures report `RECOVERY_VALIDATION_FAILED` (presence alone
+   is a silent pass).
+6. The DOM snapshot for recovery queries interactive primitives and filters to
+   visible, in-viewport nodes before capping.
+7. `POST /v1/promotion-candidates/:promotionId/decide` — approving appends a
+   new immutable `TestVersion`; rejecting just closes the candidate.
+
+## Target topology (Planned, do not "fix" toward it casually)
+
+```
+UI / CI / schedule ─▶ gateway-api ──202 + runId──▶ Postgres (runs, outbox)
+                        │ enqueue (BullMQ via Redis)
+                        ▼
+        runs.e2e | runs.api | ai.authoring
+        ├── runner-e2e (Playwright worker)      ├── runner-api (HTTP-only worker)
+        ├── ai-service (authoring, recovery, evals)  └─ scheduler (cron, fan-out)
+        └── RunEvents ─▶ Redis Streams ─▶ gateway SSE ─▶ UI
+        Artifacts ─▶ S3/MinIO; tracing via OpenTelemetry
+```
+
+Boundary rules (non-negotiable once built):
+
+1. Runners and `ai-service` never import each other; they exchange data only
+   through `packages/contracts`.
+2. Workers never serve HTTP traffic — jobs in via Redis, events out via Redis
+   Streams.
+3. Only `apps/gateway-api` and `packages/db` run DDL migrations.
+4. HTTP → domain only (see above); today's `eslint` rule is the seed of this.
+
+Until those workers exist, **there is no real queue**: runs execute on an
+unawaited in-process promise and the process holds the work. That is a known
+gap, not a bug — see `01.md` (worker-side tenancy, missing workspace members)
+and [ROADMAP.md](ROADMAP.md).

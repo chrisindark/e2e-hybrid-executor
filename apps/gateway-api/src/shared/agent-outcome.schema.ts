@@ -9,7 +9,11 @@ export const recoverStepSchema = z.object({
   action: z
     .string()
     .describe('click" | "fill" | "assertText" | "assertVisible'),
-  value: z.string().describe('a value to be filled only if action is fill'),
+  value: z
+    .string()
+    .describe(
+      'input value only when action is fill; omit for assertText (its expected text is reused from the failed step)',
+    ),
   reasoning: z
     .string()
     .describe(
@@ -40,7 +44,7 @@ export const agenticPrimaryDecisionSchema = z.object({
     .string()
     .nullable()
     .describe(
-      'input value for fill action or targetUrl for goto action, or null if not applicable',
+      'input value for fill, target URL for goto, or the exact literal expected text for assertText; null otherwise',
     ),
   reasoning: z
     .string()

@@ -81,7 +81,7 @@ async function bootstrap() {
     app.enableShutdownHooks(['SIGINT', 'SIGTERM']);
 
     const rawPort =
-      app.get(ConfigService).get<string | number>('APP_PORT') ?? 8000;
+      app.get(ConfigService).get<string | number>('APP_PORT') ?? 3001;
     const port = Number(rawPort);
 
     const rawAddress =

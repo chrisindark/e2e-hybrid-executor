@@ -15,6 +15,7 @@ import { TestDefinition } from '../../shared/test-definition.entity';
 import { TestStep } from '../../shared/test-step.entity';
 import { StepStatus } from '../../shared/trace-event.entity';
 import { TestAction } from '../../shared/types';
+import { resolveExpectedText } from '../utils/assertion-text';
 import { GeminiService } from '../utils/gemini/gemini.service';
 import { OpenAIService } from '../utils/open-ai/open-ai.service';
 
@@ -210,7 +211,7 @@ export class AgenticExecutionService {
           );
         }
       } else if (decision.action === 'assertText') {
-        const expectedText = failedStep.expectedOutcome || failedStep.value;
+        const expectedText = resolveExpectedText(failedStep);
 
         if (!expectedText?.trim()) {
           throw new Error(
@@ -436,7 +437,7 @@ Rules:
 - If the overall goal is satisfied, respond with: "done": true, "goalAchieved": true, "action": null, "selector": null, "value": null.
 - If you hit an unrecoverable state or cannot satisfy the goal, respond with: "done": true, "goalAchieved": false, "action": null, "selector": null, "value": null.
 - For DOM interaction steps ("click", "fill", "assertText", "assertVisible"), "selector" MUST be a CSS selector present in the provided DOM snapshot.
-- For "fill", "value" is the string to enter. For "goto", "value" is the target URL.
+- For "fill", "value" is the string to enter. For "goto", "value" is the target URL. For "assertText", "value" is the exact literal text the element must contain (never a sentence).
 - Never repeat a failed action unless conditions have changed.`;
 
     for (let i = 0; i < maxSteps; i++) {

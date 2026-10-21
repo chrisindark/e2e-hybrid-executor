@@ -23,7 +23,7 @@ cp .env.example .env
 pnpm run start:dev
 ```
 
-Set `APP_PORT=8000` and `APP_ADDRESS=0.0.0.0` for the documented local URL,
+Set `APP_PORT=3001` and `APP_ADDRESS=0.0.0.0` for the documented local URL,
 then set the provider keys and URLs described in [setup.md](setup.md) before
 using intent generation or agentic recovery.
 

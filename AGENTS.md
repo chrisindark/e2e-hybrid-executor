@@ -87,7 +87,7 @@ pnpm install                    # repo root
 ./dev.sh                        # api + web together
 pnpm run build                  # turbo run build
 pnpm run lint                   # turbo run lint
-pnpm run dev:api                # = apps/gateway-api start:dev (port 8000)
+pnpm run dev:api                # = apps/gateway-api start:dev (port 3001)
 pnpm run dev:web                # = apps/web dev (port 3000)
 ```
 
