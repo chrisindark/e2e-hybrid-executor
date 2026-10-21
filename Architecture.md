@@ -93,10 +93,18 @@ else** (from [Plans.md](Plans.md)):
 | RecoveryPort       | `packages/contracts` | Runner calls; AI service implements                             |
 | PromotionCandidate | `packages/contracts` | AI pipeline produces; human approval creates a new test version |
 
-TestSpec v1 step types today: `ui.goto`, `ui.click`, `ui.fill`,
+TestSpec v1 **contract** step types: `ui.goto`, `ui.click`, `ui.fill`,
 `ui.assertText`, `ui.assertVisible`, `api.request` (with `extract` variable
-rules and `assertions`). Locators carry a primary + ranked alternates +
-semantic `intent` — that intent is what the recovery LLM reasons about.
+rules and `assertions`). Contract locators carry a primary + ranked alternates
+
+- semantic `intent`.
+
+**Runtime gap:** the gateway does not import `@repo/contracts` yet. Executed
+steps are the legacy `TestStep` shape in `src/shared/types.ts` — `TestAction`
+(`goto`/`click`/`fill`/`assertText`/`assertVisible`) plus a single CSS
+`selector`. `api.request`, `alternates`, `intent`, `schemaVersion`, and
+`targetBaseUrl` exist only in the contract today. Closing this gap is A0's
+remaining work ([ROADMAP.md](ROADMAP.md)).
 
 ## The v0 → v1 test lifecycle
 

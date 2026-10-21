@@ -13,34 +13,46 @@ contract in `packages/contracts` (`@repo/contracts`, zod → JSON Schema):
   `steps` list, and `tags`.
 - Step types: `ui.goto`, `ui.click`, `ui.fill`, `ui.assertText`,
   `ui.assertVisible`, `api.request`.
-- UI locators carry a `primary` plus ranked `alternates` and a semantic
-  `intent` string — that semantic intent is what recovery reasons about when
-  the primary locator drifts.
+- In the contract, UI locators carry a `primary` plus ranked `alternates` and
+  a semantic `intent` string — intent is what recovery is designed to reason
+  about when the primary locator drifts.
 - API steps support variable extraction (`jsonPath` + `fallback`) and
   assertions (`equals`, `not_equals`, `contains`, `greater_than`,
-  `less_than`, `schema_valid`) — story in
-  `later in detail below`.
-- ui.fill has `masked` for sensitive values.
+  `less_than`, `schema_valid`).
+- `ui.fill` has `masked` for sensitive values.
 
-Hybrid = the same step list can mix browser and HTTP steps, so cheap/nondeterministic checks go over HTTP and only genuinely visual checks open a browser.
+> **Contract vs runtime (today).** These types describe the target seam, but
+> the running gateway does not import `@repo/contracts`. It persists and
+> executes the legacy `TestStep` (`action` + a single `selector`) — so
+> `api.request`, `alternates`/`intent`, and `envVariables` are not live yet.
+> Unifying contract and runtime is milestone A0 in
+> [../ROADMAP.md](../ROADMAP.md).
+
+Hybrid = the same step list can mix browser and HTTP steps, so cheap checks go
+over HTTP and only genuinely visual checks open a browser (once the API runner
+exists).
 
 ## Tests, versions, and runs
 
-- A saved test is a **test definition** (`test-definition`) whose current
-  steps live in **`test-steps`**, referenced by the test's pinned current **`test-version`**.
-- Versions are **append-only and immutable.** Every save of a test — and every
-  promotion-approval — appends a new `test-version`; `test_steps` rows are
-  never edited before a new version pin exists.
-- A **run** pins a version at creation time (`run` entity plus
-  **`test-step-attempt`** rows), so live edits can't change what a run
-  evaluates — so later edits cannot change what a run means.
+- A saved test is a **test definition**; its authoritative content is the
+  **`test-version` snapshot** (`definitionSnapshot` + `stepsSnapshot`, with
+  `parentVersionId` and `versionNumber`). Reads and runs come from the pinned
+  version snapshot — the `test_steps` table is write-side/legacy.
+- Versions are **append-only.** Every save and every promotion-approval
+  appends a new version; promotion refuses to proceed when the test has moved
+  on (the `basedVersionId` stale-version guard).
+- A **run** records `versionId` at creation and executes that snapshot, so
+  later edits cannot change what a run means. (Only a queued record missing
+  its `versionId` falls back to the current version.)
 
 ### Deterministic assertions
 
 Assertions resolve expected content from `expectedOutcome ?? value` — never a
 bare `value` (audit invariant). The _expected_ semantic lives in
 `expectedOutcome` when present; a bare `value` would assert whatever the
-selector returned.
+selector returned. For `assertText`, that text is **literal**: the intent
+prompt and fixtures must put the exact element text (e.g. `Swag Labs`) in
+`expectedOutcome`, never a prose sentence.
 
 ### The two pipelines
 

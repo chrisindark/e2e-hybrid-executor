@@ -6,9 +6,12 @@ here are audit fixes — treat them as protected (see [../AGENTS.md](../AGENTS.m
 ## Drift, the concrete problem
 
 A test saved as _click the button labeled "Checkout"_ can break when the
-app renames that button. Because the step carries a **semantic `intent`**
-("what this action is for") plus a `primary` locator and ranked `alternates`,
-the platform can attempt self-correction instead of just failing.
+app renames that button. In the target contract the step carries a semantic
+`intent` ("what this action is for") plus a `primary` locator and ranked
+`alternates`, so a deterministic ladder can try alternates before any LLM
+call. **Today the runtime steps carry `description` + a single CSS
+`selector`** — the alternates/intent ladder is Phase 3 work; recovery
+currently reasons from the DOM snapshot and the step's description.
 
 ## Recovery is a two-stage gate (do not weaken)
 

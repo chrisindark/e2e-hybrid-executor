@@ -22,8 +22,11 @@ cannot break by approving.
 3. A human decides:
    - **Approve** (`POST /v1/promotion-candidates/:promotionId/decide`)
      → a new immutable `TestVersion` is appended with the proposed step
-     integrated. The run and the older versions are untouched. Future runs
-     pin whatever version is current at creation.
+     integrated. The run and the older versions are untouched. If the test
+     moved on since the candidate was produced (`basedVersionId` mismatch),
+     the approval is rejected with **"Promotion is based on an outdated test
+     version"** — it never overwrites newer work. Future runs pin whatever
+     version is current at creation.
    - **Reject** → the candidate closes without any version change; the
      decision trail remains.
 4. Version history (`test-version` rows) is the audit log — why a step

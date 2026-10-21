@@ -14,7 +14,7 @@ deterministic HTTP steps (`api.request`), mixed freely in a single
 - A recovery failure isolates naturally: a drifted locator farms out to the
   AI recovery path without touching the API steps in the same run.
 
-## Step types today
+## Step types (TestSpec v1 contract)
 
 Defined in `packages/contracts/src/spec/test-spec.ts`:
 
@@ -31,7 +31,22 @@ Defined in `packages/contracts/src/spec/test-spec.ts`:
 `less_than`, `schema_valid`. `extract` rules use `jsonPath` with an optional
 `fallback` and deposit into named run variables usable by later steps.
 
+> **Contract vs runtime (today).** The gateway doesn't import
+> `@repo/contracts` yet. What actually executes is the legacy `TestStep`
+> (`TestAction`: `goto`/`click`/`fill`/`assertText`/`assertVisible`) with a
+> single CSS `selector` — so `api.request`, `alternates`, `intent`, and
+> `envVariables` are contract-only until A0 / the step-engine work lands
+> ([../ROADMAP.md](../ROADMAP.md)).
+
+**Runtime `assertText` semantics:** the legacy executor reads its literal text
+from `expectedOutcome` (falling back to `value` only when `expectedOutcome` is
+nullish) and matches it with Playwright `hasText`. Authoring output must
+therefore put the exact element text — `Swag Labs`, not "the text is
+visible" — in `expectedOutcome`; the intent prompt enforces this.
+
 ## How a mixed spec executes
+
+Target behavior (per the contract); today only the UI half runs, in-process:
 
 1. The runner executes steps in order; UI steps go through Playwright, API
    steps through a plain HTTP client. Both emit trace events.
