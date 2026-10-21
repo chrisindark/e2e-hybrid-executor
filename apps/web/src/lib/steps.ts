@@ -14,7 +14,7 @@ export function isCheck(step: TestStep) {
 
 /** The literal text a check step looks for (`expectedOutcome ?? value`). */
 export function checkText(step: TestStep) {
-  return step.expectedOutcome || step.value || '';
+  return step.expectedOutcome ?? step.value ?? '';
 }
 
 export function describeStep(step: TestStep): string {

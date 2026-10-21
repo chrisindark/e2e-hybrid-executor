@@ -16,6 +16,7 @@ import { PromotionCandidateService } from '../promotion-candidate/promotion-cand
 import { RunService } from '../run/run.service';
 import { TestStoreService } from '../test-store/test-store.service';
 import { TraceEventService } from '../trace-event/trace-event.service';
+import { resolveExpectedText } from '../utils/assertion-text';
 
 export type TestRun = Run & { events: TraceEvent[] };
 
@@ -304,7 +305,7 @@ export class TestRunService {
         break;
       case 'assertText':
         {
-          const expectedText = step.expectedOutcome || step.value;
+          const expectedText = resolveExpectedText(step);
 
           if (!expectedText?.trim()) {
             throw new Error(

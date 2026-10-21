@@ -42,11 +42,15 @@ Respond ONLY with valid JSON matching this shape, no markdown fences, no prose:
       "description": "short human-readable description",
       "action": "goto" | "click" | "fill" | "assertText" | "assertVisible",
       "selector": "CSS selector, omit for goto",
-      "value": "input value, only for fill actions, except for goto action where value is the targetUrl",
-      "expectedOutcome": "what should be true after this step"
+      "value": "input value for fill; the targetUrl for goto; omit otherwise",
+      "expectedOutcome": "plain-English outcome; for assertText, the exact literal text the element must contain"
     }
   ]
-}`;
+}
+
+Rules:
+- For "assertText", "expectedOutcome" MUST be the exact literal text the element is expected to contain (e.g. "Swag Labs") — never a sentence like "the text is visible", and without surrounding quotes.
+- "value" never carries expected assertion text; assertions read "expectedOutcome".`;
 
     const completion = await this.openAIService.normalCompletion(
       intent,
