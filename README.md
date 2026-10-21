@@ -1,83 +1,74 @@
-# Hybrid Test Execution
+# e2e-hybrid-executor
 
-A NestJS API and Next.js web dashboard for converting plain-English test intent
-into Playwright steps, running those steps, recovering from a forced selector
-failure with Gemini, and reviewing the proposed step before promotion.
+A multi-tenant test execution platform: turn plain-English test intent into
+structured, runnable steps (Playwright for UI, HTTP for API), recover from
+selector drift with an LLM, and let a human promote the recovery back into an
+immutable test version.
 
-## Architecture
+> **Status: mid-migration.** The repo is moving from a single NestJS process
+> (v0 loop) toward the target topology: four deployables + Postgres/RLS +
+> Redis/BullMQ. Tenancy via Postgres RLS is live; the queue and workers are not
+> built yet — runs still execute on an in-process promise. See
+> [ROADMAP.md](ROADMAP.md) and [docs/](docs/) for what works today.
 
-See [Architecture.md](Architecture.md). The repository is a pnpm workspace with
-two applications:
+## How it works
 
-- `apps/gateway-api` — NestJS REST API, Playwright execution engine, Gemini recovery,
-  TypeORM/SQLite persistence, and promotion workflow.
-- `apps/web` — Next.js dashboard for intent capture, saved tests, execution
-  traces, and promotion review.
+```
+Intent ("log in and check the dashboard")
+  → POST /v1/intent (LLM parses to a TestSpec v1)
+  → Save test (v1/generation)         ── immutable TestVersion on save/promise
+  → Run (POST /v1/execution/:testId/run → 202 { runId, status: 'QUEUED' })
+  → Deterministic Playwright/HTTP steps + trace events
+  → On drift: LLM recovery candidate, validated against a real post-condition
+  → Human reviews the candidate (v1/promotion-candidates) and approves
+  → Approval appends a new immutable TestVersion (never mutates steps in place)
+```
 
-The API uses URI versioning and exposes its application routes under `/v1`.
-There is no queue, worker, or SSE stream; the web app polls and fetches run
-results over REST.
+## Repository layout
 
-SQLite data is stored in `apps/gateway-api/database.sqlite` when the API is started from
-that application directory. TypeORM synchronizes the entities on startup.
+| Path                 | Contents                                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `apps/gateway-api`   | NestJS REST API: auth, tenants, CRUD, runs, trace, promotion, webhooks                              |
+| `apps/web`           | Next.js 14 dashboard: intent, runs, trace, promotion review                                         |
+| `services/`          | Target workers (`runner-e2e`, `runner-api`, `ai-service`, `scheduler`) — scaffolding, largely empty |
+| `packages/contracts` | TestSpec v1 (zod), the seam between the AI and deterministic pipelines                              |
+| `packages/db`        | Migrations + tenant context (`@repo/db`)                                                            |
+| `packages/queue`     | Job envelope helpers (`@repo/queue`) — no real queue wired yet                                      |
+| `packages/telemetry` | Request-scoped `RequestContext` (correlation id, tenant, actor)                                     |
 
-### AI Provider Selection
+## Quick start
 
-- **Intent Parsing**: Uses Groq (`llama-3.3-70b-versatile` or `llama3-70b-8192`) for fast, near-instantaneous structured extraction of test steps from natural language.
-- **Agentic Recovery**: Uses Gemini (`gemini-2.5-flash` or similar) for its strong multi-modal capabilities and deep reasoning context window during complex DOM analysis and self-healing.
-
-## Prerequisites
-
-- Node.js 20 or newer
-- npm 10 or newer
-- A Groq API key and Gemini API key
-- Network access for dependency installation, Playwright, and the target site
-
-## Setup
+Prerequisites: Node 20+, pnpm, Docker (for Postgres + Redis).
 
 ```bash
-# from repo root
 pnpm install
-
-# Playwright needs its browser binary
-npx playwright install chromium --with-deps
-
-# configure the API
-cp apps/gateway-api/.env.example apps/gateway-api/.env
-# set APP_PORT=8000, APP_ADDRESS=0.0.0.0, provider keys/URLs, and CORS values
-
-# configure the web app (defaults are fine for local dev)
+docker compose up -d                                          # Postgres 16, Redis 7
+cp apps/gateway-api/.env.example apps/gateway-api/.env        # then set provider keys
 cp apps/web/.env.example apps/web/.env.development
+pnpm db:migrate                                               # schema (+ RLS policies)
+./dev.sh                                                      # API :3001, web :3000
 ```
 
-## Run
-
-Two terminals:
+Playwright needs its browser once:
 
 ```bash
-pnpm run dev:api   # http://localhost:8000
-pnpm run dev:web   # http://localhost:3000
+npx playwright install chromium --with-deps
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. The web app mints a dev tenant JWT automatically
+(see `NEXT_PUBLIC_TENANT_ID` — it must be a UUID, or RLS will reject every
+request).
 
-## Demo flow
+## Documentation
 
-1. Enter an intent and target URL, then generate and save the structured test.
-2. Review the saved steps and optionally choose a step for forced UI drift.
-3. Run the test and inspect the deterministic and agentic trace events.
-4. Review the resulting promotion candidate and approve or reject the proposed
-   step. Approval updates the stored step for future runs.
-
-## API routes
-
-- `POST /v1/auth/token` — mint a tenant-scoped JWT for local/dev use.
-  The web app calls this automatically (see `NEXT_PUBLIC_TENANT_ID`).
-- `POST /v1/intent` — generate steps from intent.
-- `GET|POST|PUT /v1/generation` and `/v1/generation/:testId` — manage saved
-  tests.
-- `GET /v1/execution`, `GET /v1/execution/:runId`, and
-  `POST /v1/execution/:testId/run` — list, inspect, and start runs.
-- `GET /v1/runs` and `/v1/runs/:runId` — inspect persisted runs.
-- `GET /v1/promotion-candidates` and
-  `POST /v1/promotion-candidates/:promotionId/decide` — review recoveries.
+| File                                 | Purpose                                               |
+| ------------------------------------ | ----------------------------------------------------- |
+| [ARCHITECTURE.md](Architecture.md)   | Current architecture and target topology              |
+| [ROADMAP.md](ROADMAP.md)             | Migration status and remaining work                   |
+| [CONFIGURATION.md](CONFIGURATION.md) | Environment variables (two DB URLs, keys, CORS)       |
+| [DEVELOPMENT.md](DEVELOPMENT.md)     | Workspace commands, hooks, migrations, code style     |
+| [API_REFERENCE.md](API_REFERENCE.md) | HTTP endpoints under `/v1`                            |
+| [SECURITY.md](SECURITY.md)           | RLS tenancy model, auth, secret handling              |
+| [AGENTS.md](AGENTS.md)               | Working agreement for coding agents (read this first) |
+| [docs/](docs/)                       | Topic guides + ADRs in `docs/adr/`                    |
+| [examples/](examples/)               | Walkthrough examples                                  |
